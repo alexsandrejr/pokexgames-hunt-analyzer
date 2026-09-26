@@ -1,0 +1,52 @@
+PokeXGames Hunt Analyzer
+========================
+
+Guarda o histórico das suas Hunts do PokeXGames (os JSONs do Analyzer) e mostra
+estatísticas, gráficos, relatórios por item e por inimigo, comparação entre Hunts
+e exportação para Excel, CSV, PDF e JSON.
+
+
+COMO ABRIR
+----------
+1. Extraia o .zip inteiro para uma pasta (por exemplo, Documentos).
+   Não abra o programa de dentro do .zip.
+2. Abra "PokeXGames Hunt Analyzer.exe".
+3. Na primeira vez, o Windows pode mostrar "O Windows protegeu o computador".
+   Isso acontece com programas sem assinatura digital. Clique em
+   "Mais informações" e depois em "Executar assim mesmo".
+
+Não é preciso instalar nada (nem Python).
+
+
+COMO IMPORTAR SUAS HUNTS
+------------------------
+- Arraste os arquivos .json do Analyzer (ou a pasta inteira) para a janela; ou
+- Menu Hunts > Importar JSON / Importar pasta; ou
+- Hunts > Colar JSON, para colar o texto copiado do Analyzer.
+
+Hunts repetidas são detectadas e não entram duas vezes.
+
+
+ONDE FICAM OS SEUS DADOS
+------------------------
+Em %LOCALAPPDATA%\PokeXGames Hunt Analyzer
+(cole esse endereço na barra do Explorador de Arquivos para abrir a pasta).
+Lá ficam o banco (hunts.db), os backups e as configurações.
+
+Atualizar o programa não apaga nada: basta substituir a pasta do programa pela
+versão nova. Os dados continuam no mesmo lugar.
+
+Modo portátil (pendrive): crie uma pasta chamada "data" ao lado do .exe. A
+partir daí, o programa guarda tudo nela.
+
+
+BACKUP
+------
+O programa faz um backup automático por dia ao abrir. Em Configurações você
+pode fazer backup na hora, salvar uma cópia onde quiser e restaurar backups.
+
+
+SE DER ALGUM ERRO
+-----------------
+O programa mostra uma mensagem com o caminho do arquivo de log (app.log).
+Envie esse arquivo para quem te passou o programa.

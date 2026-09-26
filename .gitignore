@@ -1,0 +1,52 @@
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+
+# Testes / ferramentas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editores
+.vscode/
+.idea/
+
+# Variáveis de ambiente
+.env
+
+# Bancos de dados locais
+*.db
+*.sqlite
+*.sqlite3
+
+# Sistema operacional
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Preferências locais do aplicativo
+data/settings.json
+data/settings.tmp
+
+# Dados locais gerados pelo aplicativo
+data/logs/
+data/backups/
+
+# Build do executável
+build/
+dist/
+
+# JSONs importados/colados pelo usuário (dados pessoais); só o exemplo vai para o repositório
+imports/*
+!imports/exemplo_hunt_1080.json

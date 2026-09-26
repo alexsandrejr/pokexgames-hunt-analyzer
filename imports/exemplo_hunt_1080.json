@@ -1,0 +1,81 @@
+{
+  "Experience": {},
+  "Enemies Defeated": [
+    {
+      "Rare": false,
+      "Ignored": false,
+      "Enemy": "Mecha Abomasnow",
+      "Player": "Royalzxd",
+      "Count": 34
+    },
+    {
+      "Rare": false,
+      "Ignored": false,
+      "Enemy": "Mecha Blastoise",
+      "Player": "Royalzxd",
+      "Count": 27
+    },
+    {
+      "Rare": false,
+      "Ignored": false,
+      "Enemy": "Mecha Charizard",
+      "Player": "Royalzxd",
+      "Count": 40
+    }
+  ],
+  "Drops": [
+    {
+      "Total price": 262872,
+      "Ignored": null,
+      "Item": "nightmare gem",
+      "Count": 1217,
+      "Player": "Royalzxd",
+      "Unit price": 216
+    },
+    {
+      "Total price": 388000,
+      "Ignored": null,
+      "Item": "metal scraps",
+      "Count": 194,
+      "Player": "Royalzxd",
+      "Unit price": 2000
+    }
+  ],
+  "Session": {
+    "Session ID": 1080,
+    "Kills": 368,
+    "Damage dealt": 119470652,
+    "Status": "Active",
+    "Rare kills per hour": 0,
+    "Start": "2026-09-26 15:24:20",
+    "Experience per hour": 0,
+    "Profit": 1119522,
+    "Supplies per hour": 97266,
+    "Paused seconds": 0,
+    "Profit per hour": 935099,
+    "Supplies": 116450,
+    "Experience": 0,
+    "Duration seconds": 4310,
+    "Duration": "01:11:50",
+    "Damage dealt per second": 27719,
+    "Damage taken per second": 338,
+    "Rare kills": 0,
+    "Time to next level": null,
+    "Raw gains": 1235972,
+    "Damage taken": 1460258,
+    "Time to next level seconds": null,
+    "Session type": "player",
+    "Kills per hour": 307,
+    "Raw gains per hour": 1032366
+  },
+  "Supplies": [
+    {
+      "Total price": 30000,
+      "Ignored": null,
+      "Item": "Healing Elixir",
+      "Count": 3,
+      "Player": "Royalzxd",
+      "Unit price": 10000
+    }
+  ]
+}
