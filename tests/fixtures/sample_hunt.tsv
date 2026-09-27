@@ -1,0 +1,95 @@
+Sessão
+Campo	Valor
+Tipo de sessão	player
+ID da sessão	198
+Status	Pausado
+Começar	2026-09-20 09:11:03
+Duração	01:59:16
+Duração em segundos	7156
+Tempo pausado em segundos	0
+Experiência	7992903
+Experiência por hora	4021024
+Tempo até o próximo nível	03:10:33
+Tempo em segundos até o próximo nível	11433
+Ganho bruto	2790798
+Ganho bruto por hora	1403978
+Suprimentos	419294
+Suprimentos por hora	210936
+Lucro	2371504
+Lucro por hora	1193042
+Eliminações	610
+Eliminações por hora	306
+Raros derrotados	2
+Raros derrotados por hora	1
+Dano recebido	4597594
+Dano recebido por segundo	642
+Dano causado	223529171
+Dano causado por segundo	31236
+
+Experiência
+Jogador	Experiência
+Avg Sandrinhas	7992903
+
+Saques
+Jogador	Item	Contagem	Preço unitário	Preço total	Ignoradas
+Avg Sandrinhas	pot of lava	368	18	6624
+Avg Sandrinhas	Crystal Stone	5	50000	250000
+Avg Sandrinhas	black hull	2	100	200
+Avg Sandrinhas	Scarlet Shard	4	150000	600000
+Avg Sandrinhas	Volcanic essence	60	1000	60000
+Avg Sandrinhas	compressed fire	2921	50	146050
+Avg Sandrinhas	cyan nightmare gem	1	0	0
+Avg Sandrinhas	nightmare gem	164	216	35424
+Avg Sandrinhas	Nightmare Corruption Stone	2	5000	10000
+Avg Sandrinhas	Green medicinal leaf	37	100	3700
+Avg Sandrinhas	Yellow medicinal leaf	62	100	6200
+Avg Sandrinhas	Red medicinal leaf	21	100	2100
+Avg Sandrinhas	Nightmare style point	1665	100	166500
+Avg Sandrinhas	Turtonator	1	40000	40000
+Avg Sandrinhas	turtle spike	183	8000	1464000
+Avg Sandrinhas	Nightmare residue	15	0	0
+
+Suprimentos
+Jogador	Item	Contagem	Preço unitário	Preço total	Ignoradas
+Avg Sandrinhas	Medicine	2	2	4
+Avg Sandrinhas	Empty Ultra Ball	337	130	43810
+Avg Sandrinhas	Empty Premier Ball	2	0	0
+Avg Sandrinhas	pizza	1	160	160
+Avg Sandrinhas	Healing Elixir	6	0	0
+Avg Sandrinhas	Swordsman's Elixir	21	0	0
+Avg Sandrinhas	Shielder's Elixir	2	0	0
+Avg Sandrinhas	Bounty Elixir	2	0	0
+Avg Sandrinhas	Defense Elixir	19	0	0
+Avg Sandrinhas	Nightmare Revive	13	11000	143000
+Avg Sandrinhas	Nightmare Shield Elixir	2	33000	66000
+Avg Sandrinhas	Mc Blaziken	2	0	0
+Avg Sandrinhas	Combusken Beef	1	0	0
+Avg Sandrinhas	Ultimate Nightmare Potion	112	1485	166320
+Avg Sandrinhas	chopped Lum berry	6	0	0
+Avg Sandrinhas	chopped Haban berry	2	0	0
+Avg Sandrinhas	chopped Occa berry	6	0	0
+Avg Sandrinhas	chopped Kee berry	2	0	0
+
+Inimigos Derrotados
+Jogador	Inimigo	Contagem	Raro	Ignoradas
+Avg Sandrinhas	Nightmare Shiny Torkoal	2	Sim	Não
+Avg Sandrinhas	Nightmare Turtonator	608	Não	Não
+
+Dano
+Jogador	Inimigo	Elemento	Dano recebido	Dano causado
+Avg Sandrinhas	Nightmare Shiny Torkoal	Melee	36167	7252
+Avg Sandrinhas	Nightmare Shiny Torkoal	Normal	0	6692
+Avg Sandrinhas	Nightmare Shiny Torkoal	Fire	16850	0
+Avg Sandrinhas	Nightmare Shiny Torkoal	Ground	0	543542
+Avg Sandrinhas	Nightmare Shiny Torkoal	Rock	0	1193090
+Avg Sandrinhas	Nightmare Shiny Torkoal	Dark	0	7494
+Avg Sandrinhas	Nightmare Turtonator	Melee	1572960	769785
+Avg Sandrinhas	Nightmare Turtonator	Normal	0	145164
+Avg Sandrinhas	Nightmare Turtonator	Fire	2971617	16174
+Avg Sandrinhas	Nightmare Turtonator	Electric	0	21716
+Avg Sandrinhas	Nightmare Turtonator	Poison	0	45252
+Avg Sandrinhas	Nightmare Turtonator	Ground	0	36587384
+Avg Sandrinhas	Nightmare Turtonator	Rock	0	183488343
+Avg Sandrinhas	Nightmare Turtonator	Steel	0	236402
+Avg Sandrinhas	Nightmare Turtonator	Dark	0	448521
+Avg Sandrinhas	Nightmare Turtonator	Neutral	0	12360

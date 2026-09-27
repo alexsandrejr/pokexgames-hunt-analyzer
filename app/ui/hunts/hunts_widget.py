@@ -72,15 +72,15 @@ class HuntsPage(QWidget):
         self._total_all = 0  # Hunts no banco
 
         self._header = PageHeader("Hunts", "Histórico de sessões importadas")
-        paste_button = QPushButton(icon("paste"), "  Colar JSON")
-        paste_button.setToolTip("Colar o texto do JSON (Ctrl+Shift+V)")
+        paste_button = QPushButton(icon("paste"), "  Colar JSON/TSV")
+        paste_button.setToolTip("Colar o texto do JSON ou TSV (Ctrl+Shift+V)")
         paste_button.clicked.connect(self._importer.paste_and_import)
         folder_button = QPushButton(icon("folder"), "  Importar pasta")
-        folder_button.setToolTip("Importar todos os .json de uma pasta (Ctrl+Shift+I)")
+        folder_button.setToolTip("Importar todos os .json e .tsv de uma pasta (Ctrl+Shift+I)")
         folder_button.clicked.connect(self._importer.choose_folder_and_import)
-        import_button = QPushButton(icon("import"), "  Importar JSON")
+        import_button = QPushButton(icon("import"), "  Importar JSON/TSV")
         import_button.setObjectName("PrimaryButton")
-        import_button.setToolTip("Selecionar arquivos .json (Ctrl+I)")
+        import_button.setToolTip("Selecionar arquivos .json ou .tsv (Ctrl+I)")
         import_button.clicked.connect(self._importer.choose_and_import)
         self._header.add_action(paste_button)
         self._header.add_action(folder_button)
@@ -94,8 +94,8 @@ class HuntsPage(QWidget):
         self._stack = QStackedWidget()
         self._stack.addWidget(EmptyState(
             "Nenhuma Hunt importada",
-            "Arraste arquivos .json ou pastas para esta janela, use “Importar JSON” ou "
-            "“Importar pasta”, ou cole o texto com “Colar JSON”.",
+            "Arraste arquivos .json/.tsv ou pastas para esta janela, use “Importar JSON/TSV” "
+            "ou “Importar pasta”, ou cole o texto com “Colar JSON/TSV”.",
         ))
         self._stack.addWidget(self._table)
         self._stack.addWidget(EmptyState(

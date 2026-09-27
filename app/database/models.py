@@ -3,6 +3,8 @@
 Cada importação de JSON vira uma ``HuntSession`` (registro histórico permanente),
 com seus inimigos, drops e supplies em tabelas relacionadas. O JSON original é
 sempre preservado em ``raw_json`` para que campos futuros do Analyzer não se percam.
+
+``ItemPrice`` guarda os preços personalizados dos itens (ver ``price_service``).
 """
 
 from __future__ import annotations
@@ -102,8 +104,12 @@ class ItemEntryMixin:
     id: Mapped[int] = mapped_column(primary_key=True)
     item: Mapped[str] = mapped_column(String(200), index=True)
     count: Mapped[int] = mapped_column(default=0)
+    # Preço em vigor: o do Analyzer ou o da tabela de preços personalizados.
     unit_price: Mapped[float | None]
     total_price: Mapped[int | None]
+    # Preço exportado pelo Analyzer, restaurado quando o preço personalizado é removido.
+    original_unit_price: Mapped[float | None]
+    original_total_price: Mapped[int | None]
     player: Mapped[str | None] = mapped_column(String(200))
     ignored: Mapped[bool | None]
 
@@ -124,3 +130,16 @@ class Supply(ItemEntryMixin, Base):
         ForeignKey("hunt_sessions.id", ondelete="CASCADE"), index=True
     )
     hunt: Mapped[HuntSession] = relationship(back_populates="supplies_used")
+
+
+class ItemPrice(Base):
+    """Preço unitário personalizado de um item, válido para todas as Hunts."""
+
+    __tablename__ = "item_prices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Nome em minúsculas, usado para casar com drops e supplies.
+    key: Mapped[str] = mapped_column(String(200), unique=True)
+    item: Mapped[str] = mapped_column(String(200))  # nome como exibido
+    unit_price: Mapped[float]
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)

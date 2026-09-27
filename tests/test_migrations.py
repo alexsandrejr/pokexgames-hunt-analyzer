@@ -54,11 +54,34 @@ class MigrationTests(unittest.TestCase):
         old.dispose()
 
         database = self.open()
-        self.assertEqual([m.version for m in database.pending_migrations()], [1, 2])
+        self.assertEqual([m.version for m in database.pending_migrations()], [1, 2, 3])
         database.create_schema()
         self.assertEqual(database.schema_version(), LATEST_VERSION)
         self.assertEqual(HuntService(database).count_hunts(), 1)
         self.assertEqual(database.pending_migrations(), [])
+        database.dispose()
+
+    def test_version2_database_gets_original_price_columns(self) -> None:
+        # Banco da versão 2: drops e supplies ainda sem as colunas de preço original.
+        old = self.open()
+        old.create_schema()
+        HuntService(old).import_file(SAMPLE_HUNT_PATH)
+        with old.engine.begin() as connection:
+            for table in ("drops", "supplies"):
+                for column in ("original_unit_price", "original_total_price"):
+                    connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
+            connection.execute(text("PRAGMA user_version = 2"))
+        old.dispose()
+
+        database = self.open()
+        self.assertEqual([m.version for m in database.create_schema()], [3])
+        with database.engine.connect() as connection:
+            rows = connection.execute(text(
+                "SELECT unit_price, original_unit_price, total_price, original_total_price "
+                "FROM drops")).all()
+        self.assertTrue(rows)
+        for unit, original_unit, total, original_total in rows:
+            self.assertEqual((original_unit, original_total), (unit, total))
         database.dispose()
 
     def test_item_filter_uses_new_index(self) -> None:

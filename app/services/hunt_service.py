@@ -5,23 +5,26 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 from app.database.database import Database
 from app.database.models import Drop, EnemyDefeated, HuntSession, Supply
-from app.database.repositories import HuntRepository
+from app.database.repositories import HuntRepository, PriceRepository
 from app.services.dto import FilterOptions, HuntSummary, ImportResult, ImportStatus
 from app.services.filters import HuntFilter, ItemSource
 from app.services.json_files import suggested_filename, write_new_json_file
 from app.services.json_importer import (
     AnalyzerImportError,
     ParsedHunt,
-    parse_analyzer_json,
-    read_json_file,
+    ParsedItem,
+    parse_analyzer_text,
+    read_analyzer_file,
 )
+from app.services.price_service import apply_custom_prices
 
 DUPLICATE_MESSAGE = "Esta Hunt já foi importada."
 IMPORTED_MESSAGE = "Hunt importada com sucesso."
-PASTED_SOURCE = "JSON colado"
+PASTED_SOURCE = "Texto colado"
 
 
 class HuntService:
@@ -31,14 +34,14 @@ class HuntService:
     # ------------------------------------------------------------------ import
 
     def import_file(self, path: str | Path, allow_duplicate: bool = False) -> ImportResult:
-        """Importa um JSON do Analyzer a partir de um arquivo.
+        """Importa um JSON ou TSV do Analyzer a partir de um arquivo.
 
         Nunca lança exceção para erros de conteúdo: o resultado informa o status
         (importada, duplicada ou erro) com a mensagem para o usuário.
         """
         source = str(path)
         try:
-            text = read_json_file(path)
+            text = read_analyzer_file(path)
         except AnalyzerImportError as exc:
             return _error_result(source, exc)
         return self.import_text(text, source=source, allow_duplicate=allow_duplicate)
@@ -47,7 +50,7 @@ class HuntService:
         self, text: str, source: str = "", allow_duplicate: bool = False
     ) -> ImportResult:
         try:
-            parsed = parse_analyzer_json(text, source_file=Path(source).name or None)
+            parsed = parse_analyzer_text(text, source_file=Path(source).name or None)
         except AnalyzerImportError as exc:
             return _error_result(source, exc)
         return self._store(parsed, source, allow_duplicate)
@@ -55,14 +58,15 @@ class HuntService:
     def import_pasted_text(
         self, text: str, save_dir: Path, allow_duplicate: bool = False
     ) -> ImportResult:
-        """Importa um JSON colado e o salva como arquivo em ``save_dir``.
+        """Importa um JSON ou TSV colado e o salva como arquivo ``.json`` em ``save_dir``.
 
-        O arquivo só é criado se a Hunt for de fato gravada no banco: JSON
+        O arquivo só é criado se a Hunt for de fato gravada no banco: texto
         inválido ou duplicidade não confirmada não deixam arquivos para trás.
+        Um TSV é salvo já convertido para JSON.
         """
         text = text.strip()
         try:
-            parsed = parse_analyzer_json(text)
+            parsed = parse_analyzer_text(text)
         except AnalyzerImportError as exc:
             return _error_result(PASTED_SOURCE, exc)
         return self._store(parsed, PASTED_SOURCE, allow_duplicate, save_dir=save_dir)
@@ -98,7 +102,9 @@ class HuntService:
                 parsed.source_file = saved_path.name
                 source = str(saved_path)
             try:
-                hunt = repository.add(_build_model(parsed))
+                hunt = _build_model(parsed)
+                apply_custom_prices(hunt, PriceRepository(session).price_map())
+                repository.add(hunt)
                 session.commit()
             except Exception:
                 if saved_path is not None:
@@ -169,6 +175,12 @@ def _build_model(parsed: ParsedHunt) -> HuntSession:
         source_file=parsed.source_file,
     )
     hunt.enemies = [EnemyDefeated(**asdict(enemy)) for enemy in parsed.enemies]
-    hunt.drops = [Drop(**asdict(item)) for item in parsed.drops]
-    hunt.supplies_used = [Supply(**asdict(item)) for item in parsed.supplies]
+    hunt.drops = [Drop(**_item_fields(item)) for item in parsed.drops]
+    hunt.supplies_used = [Supply(**_item_fields(item)) for item in parsed.supplies]
     return hunt
+
+
+def _item_fields(item: ParsedItem) -> dict[str, Any]:
+    """Colunas de Drop/Supply, guardando também o preço original do Analyzer."""
+    return {**asdict(item), "original_unit_price": item.unit_price,
+            "original_total_price": item.total_price}

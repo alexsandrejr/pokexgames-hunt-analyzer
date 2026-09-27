@@ -141,7 +141,7 @@ class DashboardPage(QWidget):
         if stats.hunt_count == 0:
             self._empty_hint.setText(
                 "Nenhuma Hunt corresponde aos filtros." if not hunt_filter.is_empty
-                else "Nenhuma Hunt importada ainda. Use Hunts → Importar JSON para começar.")
+                else "Nenhuma Hunt importada ainda. Use Hunts → Importar JSON/TSV para começar.")
         elif not enough:
             self._empty_hint.setText("Os gráficos aparecem a partir de 2 Hunts.")
         self._empty_hint.setVisible(not enough)

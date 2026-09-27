@@ -1,4 +1,4 @@
-"""Fluxo de importação na interface: arquivos, pastas, arrastar e soltar e JSON colado.
+"""Fluxo de importação na interface: arquivos, pastas, arrastar e soltar e JSON/TSV colado.
 
 * Um único arquivo: em caso de duplicidade, o usuário decide (Cancelar/Importar).
 * Vários arquivos (seleção múltipla, pasta ou arrastar e soltar): duplicatas são
@@ -17,22 +17,23 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QWidget
 from app.config import IMPORTS_DIR
 from app.services.dto import ImportResult, ImportStatus
 from app.services.hunt_service import HuntService
-from app.services.json_files import collect_json_files
+from app.services.json_files import ANALYZER_EXTENSIONS, collect_analyzer_files
 from app.ui.hunts.paste_json_dialog import PasteJsonDialog
 
-JSON_FILE_FILTER = "JSON do Analyzer (*.json);;Todos os arquivos (*)"
+ANALYZER_FILE_FILTER = ("Analyzer (*.json *.tsv *.txt);;JSON (*.json);;TSV (*.tsv *.txt);;"
+                        "Todos os arquivos (*)")
 PROGRESS_THRESHOLD = 5  # a partir de quantos arquivos mostrar a barra de progresso
 MAX_REPORT_LINES = 15
 
 
 def dropped_paths(mime: QMimeData) -> list[Path]:
-    """Arquivos .json e pastas locais de um arrastar e soltar."""
+    """Arquivos .json/.tsv e pastas locais de um arrastar e soltar."""
     paths = []
     for url in mime.urls():
         if not url.isLocalFile():
             continue
         path = Path(url.toLocalFile())
-        if path.is_dir() or (path.is_file() and path.suffix.lower() == ".json"):
+        if path.is_dir() or (path.is_file() and path.suffix.lower() in ANALYZER_EXTENSIONS):
             paths.append(path)
     return paths
 
@@ -46,7 +47,7 @@ class ImportController(QObject):
         super().__init__(parent_widget)
         self._service = service
         self._parent = parent_widget
-        # Pasta onde os JSONs colados são salvos como arquivo.
+        # Pasta onde os textos colados são salvos como arquivo .json.
         self.paste_save_dir = paste_save_dir
 
     @staticmethod
@@ -55,19 +56,20 @@ class ImportController(QObject):
 
     def choose_and_import(self) -> list[ImportResult]:
         paths, _ = QFileDialog.getOpenFileNames(
-            self._parent, "Importar JSON do Analyzer", self._start_dir(), JSON_FILE_FILTER)
+            self._parent, "Importar JSON/TSV do Analyzer", self._start_dir(),
+            ANALYZER_FILE_FILTER)
         return self.import_paths(paths) if paths else []
 
     def choose_folder_and_import(self) -> list[ImportResult]:
         folder = QFileDialog.getExistingDirectory(
-            self._parent, "Importar todos os JSONs de uma pasta", self._start_dir())
+            self._parent, "Importar todos os JSON/TSV de uma pasta", self._start_dir())
         return self.import_paths([folder]) if folder else []
 
     def import_paths(self, paths: Iterable[str | Path]) -> list[ImportResult]:
         """Importa arquivos e pastas (as pastas são percorridas com subpastas)."""
-        files = collect_json_files(paths)
+        files = collect_analyzer_files(paths)
         if not files:
-            self.show_batch_report("Nenhum arquivo .json foi encontrado.", [])
+            self.show_batch_report("Nenhum arquivo .json ou .tsv foi encontrado.", [])
             return []
         if len(files) == 1:
             results = [self._import_confirming_duplicate(
@@ -106,7 +108,7 @@ class ImportController(QObject):
         return self.import_pasted(dialog.text())
 
     def import_pasted(self, text: str) -> ImportResult:
-        """Importa o texto colado; se importado, ele também vira um arquivo .json."""
+        """Importa o texto colado (JSON ou TSV); se importado, também vira um arquivo .json."""
         result = self._import_confirming_duplicate(
             lambda force: self._service.import_pasted_text(
                 text, self.paste_save_dir, allow_duplicate=force

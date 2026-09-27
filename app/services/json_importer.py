@@ -1,5 +1,8 @@
 """Leitura, validação e extração dos JSONs gerados pelo Analyzer do PokeXGames.
 
+O TSV do Analyzer também é aceito: ``parse_analyzer_text`` detecta o formato e
+converte o TSV no JSON equivalente (ver ``tsv_importer``) antes de extrair.
+
 Este módulo não conhece o banco de dados: ele transforma o texto JSON em um
 ``ParsedHunt`` (dataclasses simples). A persistência fica a cargo do
 ``HuntService``. Isso permite reutilizar o parser para importação de arquivo
@@ -16,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.services.tsv_importer import TsvFormatError, looks_like_tsv, tsv_to_document
 from app.utils.constants import SECONDS_PER_HOUR, AnalyzerKeys, EntryKeys
 from app.utils.validators import (
     parse_datetime,
@@ -44,6 +48,10 @@ class FileReadError(AnalyzerImportError):
 
 class InvalidJsonError(AnalyzerImportError):
     default_message = "JSON inválido."
+
+
+class InvalidTsvError(AnalyzerImportError):
+    default_message = "TSV inválido."
 
 
 class InvalidAnalyzerSessionError(AnalyzerImportError):
@@ -160,7 +168,7 @@ DERIVED_RATES: tuple[tuple[str, str, int], ...] = (
 )
 
 
-def read_json_file(path: str | Path) -> str:
+def read_analyzer_file(path: str | Path) -> str:
     """Lê o arquivo como texto UTF-8 (tolerando BOM)."""
     try:
         return Path(path).read_text(encoding="utf-8-sig")
@@ -197,9 +205,27 @@ def validate_analyzer_document(data: Any) -> dict[str, Any]:
     return session
 
 
+def parse_analyzer_text(text: str, source_file: str | None = None) -> ParsedHunt:
+    """Valida e extrai uma Hunt do texto do Analyzer, em JSON ou TSV.
+
+    O TSV é convertido e guardado como JSON (``raw_json``), com todas as seções.
+    """
+    if not looks_like_tsv(text):
+        return parse_analyzer_json(text, source_file)
+    try:
+        data = tsv_to_document(text)
+    except TsvFormatError as exc:
+        raise InvalidTsvError(detail=str(exc)) from exc
+    raw_json = json.dumps(data, ensure_ascii=False, indent=2)
+    return _parse_document(data, raw_json, source_file)
+
+
 def parse_analyzer_json(text: str, source_file: str | None = None) -> ParsedHunt:
     """Valida e extrai uma Hunt a partir do texto JSON do Analyzer."""
-    data = load_json(text)
+    return _parse_document(load_json(text), text, source_file)
+
+
+def _parse_document(data: Any, raw_json: str, source_file: str | None) -> ParsedHunt:
     session_data = validate_analyzer_document(data)
     warnings: list[str] = []
 
@@ -216,7 +242,7 @@ def parse_analyzer_json(text: str, source_file: str | None = None) -> ParsedHunt
         enemies=enemies,
         drops=drops,
         supplies=supplies,
-        raw_json=text,
+        raw_json=raw_json,
         content_hash=compute_content_hash(data),
         source_file=source_file,
         warnings=warnings,

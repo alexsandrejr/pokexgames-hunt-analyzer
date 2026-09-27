@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QStackedWid
 from app.services.backup_service import BackupService
 from app.services.entity_report import EntityKind
 from app.services.hunt_service import HuntService
+from app.services.price_service import PriceService
 from app.services.settings_service import AppSettings, SettingsStore
 from app.services.statistics_service import StatisticsService
 from app.ui.dashboard.dashboard_widget import DashboardPage
@@ -28,6 +29,7 @@ from app.ui.filters.filter_panel import FilterPanel
 from app.ui.hunts.hunt_details import show_hunt_details
 from app.ui.icons import icon
 from app.ui.import_controller import ImportController, dropped_paths
+from app.ui.prices.prices_widget import PricesPage
 from app.ui.reports.reports_widget import ReportsPage
 from app.ui.settings.settings_widget import SettingsPage
 from app.ui.sidebar import NavItem, Sidebar
@@ -42,6 +44,7 @@ NAV_ITEMS = [
     NavItem("reports", "Relatórios", "reports"),
     NavItem("items", "Itens", "items"),
     NavItem("enemies", "Inimigos", "enemies"),
+    NavItem("prices", "Preços", "prices"),
     NavItem("settings", "Configurações", "settings"),
 ]
 
@@ -51,7 +54,8 @@ class MainWindow(QMainWindow):
                  database_path: Path, backup_service: BackupService | None = None,
                  settings_store: SettingsStore | None = None,
                  settings: AppSettings | None = None,
-                 restart: Callable[[], None] | None = None) -> None:
+                 restart: Callable[[], None] | None = None,
+                 price_service: PriceService | None = None) -> None:
         super().__init__()
         self._restart = restart
         self.setWindowTitle(APP_NAME)
@@ -84,6 +88,7 @@ class MainWindow(QMainWindow):
                 "Inimigos", "Pokémon derrotados ao longo das Hunts filtradas",
                 [EntityKind.ENEMIES], hunt_service, statistics_service,
                 self.filters, self.open_hunt),
+            "prices": PricesPage(price_service or PriceService(hunt_service.database)),
             "settings": SettingsPage(hunt_service, database_path, backup_service,
                                      settings_store, settings),
         }
@@ -106,7 +111,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(central)
 
-        # Arrastar e soltar arquivos .json ou pastas em qualquer ponto da janela.
+        # Arrastar e soltar arquivos .json/.tsv ou pastas em qualquer ponto da janela.
         self.setAcceptDrops(True)
         self.drop_overlay = DropOverlay(central)
 
@@ -118,13 +123,13 @@ class MainWindow(QMainWindow):
 
     def _build_menu(self) -> None:
         hunts_menu = self.menuBar().addMenu("&Hunts")
-        import_action = QAction(icon("import"), "&Importar JSON…", self)
+        import_action = QAction(icon("import"), "&Importar JSON/TSV…", self)
         import_action.setShortcut(QKeySequence("Ctrl+I"))
         import_action.triggered.connect(self.importer.choose_and_import)
         folder_action = QAction(icon("folder"), "Importar &pasta…", self)
         folder_action.setShortcut(QKeySequence("Ctrl+Shift+I"))
         folder_action.triggered.connect(self.importer.choose_folder_and_import)
-        paste_action = QAction(icon("paste"), "&Colar JSON…", self)
+        paste_action = QAction(icon("paste"), "&Colar JSON/TSV…", self)
         paste_action.setShortcut(QKeySequence("Ctrl+Shift+V"))
         paste_action.triggered.connect(self.importer.paste_and_import)
         refresh_action = QAction(icon("refresh"), "&Atualizar", self)

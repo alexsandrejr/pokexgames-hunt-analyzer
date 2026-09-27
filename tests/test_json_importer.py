@@ -10,7 +10,7 @@ from app.services.json_importer import (
     InvalidJsonError,
     compute_content_hash,
     parse_analyzer_json,
-    read_json_file,
+    read_analyzer_file,
 )
 from tests.helpers import SAMPLE_HUNT_PATH, load_sample, sample_text
 
@@ -172,19 +172,19 @@ class ReadFileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bom.json"
             path.write_text(SAMPLE_HUNT_PATH.read_text(encoding="utf-8"), encoding="utf-8-sig")
-            parsed = parse_analyzer_json(read_json_file(path))
+            parsed = parse_analyzer_json(read_analyzer_file(path))
             self.assertEqual(parsed.session.session_id, 1080)
 
     def test_missing_file(self) -> None:
         with self.assertRaises(FileReadError):
-            read_json_file(Path(tempfile.gettempdir()) / "does-not-exist-pxg.json")
+            read_analyzer_file(Path(tempfile.gettempdir()) / "does-not-exist-pxg.json")
 
     def test_binary_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "binary.json"
             path.write_bytes(b"\xff\xfe\x00\x81\x82")
             with self.assertRaises(InvalidJsonError):
-                read_json_file(path)
+                read_analyzer_file(path)
 
 
 if __name__ == "__main__":

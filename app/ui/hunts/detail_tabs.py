@@ -41,6 +41,8 @@ ITEM_COLUMNS: list[Column[ItemEntry]] = [
     Column("Count", lambda i: i.count, format_number, numeric=True),
     Column("Unit price", lambda i: i.unit_price, format_money, numeric=True),
     Column("Total price", lambda i: i.total_price, format_money, numeric=True),
+    Column("Analyzer price", lambda i: i.original_unit_price, format_money, numeric=True,
+           tooltip="Preço unitário exportado pelo Analyzer (antes dos preços personalizados)"),
     Column("Player", lambda i: i.player),
     Column("Ignored", lambda i: i.ignored, format_bool, centered=True),
 ]

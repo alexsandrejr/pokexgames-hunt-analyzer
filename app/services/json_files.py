@@ -1,4 +1,4 @@
-"""Gravação de JSONs colados como arquivos (nome sugerido + sem sobrescrever)."""
+"""Arquivos do Analyzer: busca em pastas e gravação de textos colados como ``.json``."""
 
 from __future__ import annotations
 
@@ -9,6 +9,8 @@ from pathlib import Path
 from app.services.json_importer import ParsedSession
 
 FILENAME_PREFIX = "hunt"
+# Extensões procuradas ao importar pastas.
+ANALYZER_EXTENSIONS = (".json", ".tsv")
 
 
 def suggested_filename(session: ParsedSession, now: datetime | None = None) -> str:
@@ -21,18 +23,18 @@ def suggested_filename(session: ParsedSession, now: datetime | None = None) -> s
     return "_".join(parts) + ".json"
 
 
-def collect_json_files(paths: Iterable[str | Path]) -> list[Path]:
-    """Expande pastas (com subpastas) em arquivos ``.json``, sem repetições.
+def collect_analyzer_files(paths: Iterable[str | Path]) -> list[Path]:
+    """Expande pastas (com subpastas) em arquivos ``.json``/``.tsv``, sem repetições.
 
-    Arquivos indicados diretamente entram mesmo sem a extensão ``.json`` (o
-    importador informa se não forem JSON válido); em pastas, só ``.json``.
+    Arquivos indicados diretamente entram com qualquer extensão (o importador
+    informa se não forem JSON ou TSV válidos); em pastas, só ``.json``/``.tsv``.
     """
     found: dict[Path, None] = {}
     for raw in paths:
         path = Path(raw)
         if path.is_dir():
             for child in sorted(path.rglob("*"), key=lambda p: str(p).lower()):
-                if child.is_file() and child.suffix.lower() == ".json":
+                if child.is_file() and child.suffix.lower() in ANALYZER_EXTENSIONS:
                     found.setdefault(child.resolve())
         elif path.is_file():
             found.setdefault(path.resolve())

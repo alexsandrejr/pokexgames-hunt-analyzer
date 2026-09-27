@@ -1,4 +1,4 @@
-"""Diálogo para colar o texto do JSON do Analyzer em vez de escolher um arquivo."""
+"""Diálogo para colar o texto do Analyzer (JSON ou TSV) em vez de escolher um arquivo."""
 
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.services.json_importer import AnalyzerImportError, parse_analyzer_json
+from app.services.json_importer import AnalyzerImportError, parse_analyzer_text
+from app.services.tsv_importer import looks_like_tsv
 from app.ui.icons import icon
 from app.ui.theme import COLORS, monospace_font
 from app.utils.formatters import format_datetime, format_duration, format_money, format_text
@@ -27,14 +28,14 @@ VALIDATION_DELAY_MS = 250
 class PasteJsonDialog(QDialog):
     def __init__(self, save_dir: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Colar JSON do Analyzer")
+        self.setWindowTitle("Colar JSON/TSV do Analyzer")
         self.setWindowIcon(icon("app"))
         self.resize(760, 560)
 
         self.editor = QPlainTextEdit()
         self.editor.setFont(monospace_font(10))
         self.editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-        self.editor.setPlaceholderText("Cole aqui o JSON gerado pelo Analyzer (Ctrl+V)…")
+        self.editor.setPlaceholderText("Cole aqui o JSON ou o TSV gerado pelo Analyzer (Ctrl+V)…")
         self.editor.setStyleSheet(f"border: 1px solid {COLORS['border']}; padding: 8px;")
 
         self.status = QLabel()
@@ -51,7 +52,7 @@ class PasteJsonDialog(QDialog):
         self.import_button.clicked.connect(self.accept)
 
         hint = QLabel(
-            f"Ao importar, o JSON também é salvo como arquivo em:\n{save_dir}",
+            f"Ao importar, o texto também é salvo como arquivo .json em:\n{save_dir}",
             objectName="MutedLabel",
         )
         hint.setWordWrap(True)
@@ -65,7 +66,7 @@ class PasteJsonDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(10)
-        layout.addWidget(QLabel("Colar JSON", objectName="PageTitle"))
+        layout.addWidget(QLabel("Colar JSON/TSV", objectName="PageTitle"))
         layout.addWidget(hint)
         layout.addWidget(self.editor, 1)
         layout.addWidget(self.status)
@@ -84,19 +85,20 @@ class PasteJsonDialog(QDialog):
         self.validate()
 
     def validate(self) -> bool:
-        """Atualiza a mensagem de status e habilita "Importar" só para JSON válido."""
+        """Atualiza a mensagem de status e habilita "Importar" só para JSON/TSV válido."""
         self._timer.stop()
         text = self.text().strip()
         if not text:
             self._set_status("Nenhum conteúdo colado.", COLORS["muted"], valid=False)
             return False
         try:
-            session = parse_analyzer_json(text).session
+            session = parse_analyzer_text(text).session
         except AnalyzerImportError as exc:
             self._set_status(exc.message, COLORS["negative"], valid=False)
             return False
+        text_format = "TSV" if looks_like_tsv(text) else "JSON"
         summary = (
-            f"✓ JSON válido — Hunt {format_text(session.session_id)} · "
+            f"✓ {text_format} válido — Hunt {format_text(session.session_id)} · "
             f"{format_text(session.player)} · {format_datetime(session.start_datetime)} · "
             f"{format_duration(session.duration_seconds)} · Profit {format_money(session.profit)}"
         )

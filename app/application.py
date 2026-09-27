@@ -22,6 +22,7 @@ from app.database.migrations import SchemaTooNewError
 from app.logging_setup import install_exception_hook, logger, setup_logging
 from app.services.backup_service import BackupError, BackupKind, BackupService
 from app.services.hunt_service import HuntService
+from app.services.price_service import PriceService
 from app.services.settings_service import AppSettings, SettingsStore
 from app.services.statistics_service import StatisticsService
 from app.ui.icons import icon
@@ -144,7 +145,8 @@ def run(argv: Sequence[str] | None = None) -> int:
     run_automatic_backup(backups, settings)
 
     window = MainWindow(HuntService(database), StatisticsService(database), database_path,
-                        backups, store, settings, restart=restart_application)
+                        backups, store, settings, restart=restart_application,
+                        price_service=PriceService(database))
     window.show()
     if SMOKE_TEST_ARG in arguments:
         _schedule_smoke_test(window)

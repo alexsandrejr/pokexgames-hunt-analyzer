@@ -93,7 +93,7 @@ class Phase4UiTests(unittest.TestCase):
         empty = self.root / "vazia"
         empty.mkdir()
         self.assertEqual(self.window.importer.import_paths([empty]), [])
-        self.assertEqual(self.reports, [("Nenhum arquivo .json foi encontrado.", [])])
+        self.assertEqual(self.reports, [("Nenhum arquivo .json ou .tsv foi encontrado.", [])])
 
     def test_drag_and_drop(self) -> None:
         folder = self._make_folder()

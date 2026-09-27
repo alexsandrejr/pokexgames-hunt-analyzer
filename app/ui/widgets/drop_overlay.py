@@ -48,4 +48,4 @@ class DropOverlay(QWidget):
         painter.setPen(QColor(COLORS["muted"]))
         painter.drawText(QRectF(frame.left(), center.y() + 2, frame.width(), 24),
                          Qt.AlignmentFlag.AlignCenter,
-                         "Arquivos .json do Analyzer ou pastas inteiras")
+                         "Arquivos .json/.tsv do Analyzer ou pastas inteiras")

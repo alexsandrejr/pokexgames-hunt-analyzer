@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import ColumnElement, delete, func, null, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.database.models import Drop, EnemyDefeated, HuntSession, Supply
+from app.database.models import Drop, EnemyDefeated, HuntSession, ItemPrice, Supply
 from app.database.query_filters import filtered_hunt_ids, hunt_filter_conditions
 from app.services.filters import HuntFilter, ItemSource
 
@@ -256,3 +256,43 @@ class HuntRepository:
         _model, name_column = ENTRY_MODELS[kind]
         stmt = select(name_column).distinct().order_by(func.lower(name_column))
         return list(self.session.scalars(stmt))
+
+
+class PriceRepository:
+    """Tabela de preços personalizados e os drops/supplies afetados por ela."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def all(self) -> list[ItemPrice]:
+        return list(self.session.scalars(select(ItemPrice).order_by(ItemPrice.key)))
+
+    def get(self, key: str) -> ItemPrice | None:
+        return self.session.scalars(select(ItemPrice).where(ItemPrice.key == key)).one_or_none()
+
+    def price_map(self) -> dict[str, float]:
+        """``{nome em minúsculas: preço}``."""
+        rows = self.session.execute(select(ItemPrice.key, ItemPrice.unit_price))
+        return {key: price for key, price in rows}
+
+    def entries_for(self, key: str) -> list[Drop | Supply]:
+        """Drops e supplies com o nome informado (em minúsculas), com a Hunt carregada."""
+        entries: list[Drop | Supply] = []
+        for model in (Drop, Supply):
+            stmt = (select(model).where(func.lower(model.item) == key)
+                    .options(selectinload(model.hunt)))
+            entries.extend(self.session.scalars(stmt))
+        return entries
+
+    def item_usage(self, model: type[Drop] | type[Supply]) -> Sequence[Any]:
+        """Uma linha por entrada: ``item``, ``count``, ``hunt_id``, ``original_unit_price``.
+
+        Ordenadas da Hunt mais antiga para a mais recente.
+        """
+        stmt = (
+            select(model.item, model.count, model.hunt_id, model.original_unit_price)
+            .join(HuntSession, HuntSession.id == model.hunt_id)
+            .order_by(HuntSession.start_datetime.is_(None), HuntSession.start_datetime,
+                      HuntSession.id)
+        )
+        return self.session.execute(stmt).mappings().all()

@@ -1,7 +1,7 @@
 """Constantes compartilhadas: nomes da aplicação e chaves do JSON do Analyzer."""
 
 APP_NAME = "PokeXGames Hunt Analyzer"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 ORGANIZATION_NAME = "PokeXGames Hunt Analyzer"
 
 

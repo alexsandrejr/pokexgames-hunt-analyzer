@@ -5,11 +5,11 @@ posteriores entram como novas ``Migration`` no fim de ``MIGRATIONS``, com
 comandos SQL idempotentes. Ao abrir um banco, as migrações com versão maior que
 a gravada nele são aplicadas em ordem, e a versão é atualizada.
 
-Para adicionar uma coluna no futuro, por exemplo::
+Tabelas novas são criadas pelo ``create_all``. Para adicionar uma coluna, declare-a
+em ``models.py`` e em ``columns`` (ela só é criada se faltar, pois bancos novos já
+a recebem do ``create_all``), por exemplo::
 
-    Migration(3, "Coluna X", ("ALTER TABLE hunt_sessions ADD COLUMN x INTEGER",))
-
-e acrescentar o campo correspondente em ``models.py``.
+    Migration(4, "Coluna X", columns=(("hunt_sessions", "x", "INTEGER"),))
 """
 
 from __future__ import annotations
@@ -24,6 +24,8 @@ class Migration:
     version: int
     description: str
     statements: tuple[str, ...] = ()
+    # (tabela, coluna, tipo SQL) criadas antes dos ``statements``, se ainda não existirem.
+    columns: tuple[tuple[str, str, str], ...] = ()
 
 
 MIGRATIONS: tuple[Migration, ...] = (
@@ -33,6 +35,18 @@ MIGRATIONS: tuple[Migration, ...] = (
         "CREATE INDEX IF NOT EXISTS ix_supplies_item_lower ON supplies (lower(item))",
         "CREATE INDEX IF NOT EXISTS ix_enemies_defeated_enemy_lower "
         "ON enemies_defeated (lower(enemy))",
+    )),
+    Migration(3, "Preços personalizados de itens (preço do Analyzer preservado)", (
+        "UPDATE drops SET original_unit_price = unit_price, original_total_price = total_price "
+        "WHERE original_unit_price IS NULL AND original_total_price IS NULL",
+        "UPDATE supplies SET original_unit_price = unit_price, "
+        "original_total_price = total_price "
+        "WHERE original_unit_price IS NULL AND original_total_price IS NULL",
+    ), columns=(
+        ("drops", "original_unit_price", "FLOAT"),
+        ("drops", "original_total_price", "INTEGER"),
+        ("supplies", "original_unit_price", "FLOAT"),
+        ("supplies", "original_total_price", "INTEGER"),
     )),
 )
 
@@ -60,9 +74,17 @@ def apply_migrations(connection: Connection) -> list[Migration]:
     """Aplica as migrações pendentes (na transação da conexão) e retorna as aplicadas."""
     applied = pending_migrations(connection)
     for migration in applied:
+        for table, column, sql_type in migration.columns:
+            if column not in _column_names(connection, table):
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
         for statement in migration.statements:
             connection.execute(text(statement))
     if applied:
         # PRAGMA não aceita parâmetros; o valor vem de uma constante do código.
         connection.execute(text(f"PRAGMA user_version = {applied[-1].version:d}"))
     return applied
+
+
+def _column_names(connection: Connection, table: str) -> set[str]:
+    # PRAGMA não aceita parâmetros; a tabela vem de uma constante do código.
+    return {row[1] for row in connection.execute(text(f"PRAGMA table_info({table})"))}

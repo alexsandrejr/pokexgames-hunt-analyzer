@@ -1,7 +1,7 @@
 PokeXGames Hunt Analyzer
 ========================
 
-Guarda o histórico das suas Hunts do PokeXGames (os JSONs do Analyzer) e mostra
+Guarda o histórico das suas Hunts do PokeXGames (JSON ou TSV do Analyzer) e mostra
 estatísticas, gráficos, relatórios por item e por inimigo, comparação entre Hunts
 e exportação para Excel, CSV, PDF e JSON.
 
@@ -20,11 +20,20 @@ Não é preciso instalar nada (nem Python).
 
 COMO IMPORTAR SUAS HUNTS
 ------------------------
-- Arraste os arquivos .json do Analyzer (ou a pasta inteira) para a janela; ou
-- Menu Hunts > Importar JSON / Importar pasta; ou
-- Hunts > Colar JSON, para colar o texto copiado do Analyzer.
+- Arraste os arquivos .json ou .tsv do Analyzer (ou a pasta inteira) para a
+  janela; ou
+- Menu Hunts > Importar JSON/TSV / Importar pasta; ou
+- Hunts > Colar JSON/TSV, para colar o texto copiado do Analyzer.
 
 Hunts repetidas são detectadas e não entram duas vezes.
+
+
+PREÇOS DOS ITENS
+----------------
+Na página Preços você define o seu próprio preço para qualquer item (aceita
+"800k", "1,2kk"...). Ele vale para todas as Hunts, inclusive as próximas, e o
+Raw gains, Supplies e Profit são recalculados. "Remover preço" volta ao preço
+do Analyzer.
 
 
 ONDE FICAM OS SEUS DADOS
