@@ -1,7 +1,8 @@
 """Modelos SQLAlchemy.
 
 Cada importação de JSON vira uma ``HuntSession`` (registro histórico permanente),
-com seus inimigos, drops e supplies em tabelas relacionadas. O JSON original é
+com seus inimigos, drops e supplies em tabelas relacionadas. A ``category`` separa
+Hunts comuns das sessões de boss (ver ``app/services/categories.py``). O JSON original é
 sempre preservado em ``raw_json`` para que campos futuros do Analyzer não se percam.
 
 ``ItemPrice`` guarda os preços personalizados dos itens (ver ``price_service``).
@@ -35,6 +36,9 @@ class HuntSession(Base):
     paused_seconds: Mapped[int | None]
     status: Mapped[str | None] = mapped_column(String(50))
     session_type: Mapped[str | None] = mapped_column(String(50))
+    # Valor de ``Category``: "hunt", "rift", "boss_red", "boss_blue" ou "terror".
+    category: Mapped[str] = mapped_column(String(20), default="hunt", server_default="hunt",
+                                          index=True)
 
     kills: Mapped[int | None]
     kills_per_hour: Mapped[float | None]

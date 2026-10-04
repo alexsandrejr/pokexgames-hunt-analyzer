@@ -44,15 +44,15 @@ HUNT_EXPORT_COLUMNS: tuple[tuple[str, str, ValueKind], ...] = (
 
 
 def hunts_document(hunts: Sequence[HuntSummary],
-                   filter_description: Sequence[str] = ()) -> ExportDocument:
+                   filter_description: Sequence[str] = (), title: str = "Hunts") -> ExportDocument:
     table = ExportTable(
-        "Hunts",
+        title,
         [ExportColumn(header, kind) for header, _attr, kind in HUNT_EXPORT_COLUMNS],
         [[getattr(hunt, attr) for _header, attr, _kind in HUNT_EXPORT_COLUMNS]
          for hunt in hunts],
     )
-    return ExportDocument("Hunts", [table],
-                          f"{len(hunts)} Hunts · {_filter_subtitle(filter_description)}")
+    return ExportDocument(title, [table],
+                          f"{len(hunts)} {title} · {_filter_subtitle(filter_description)}")
 
 
 # ---------------------------------------------------------------- Comparação

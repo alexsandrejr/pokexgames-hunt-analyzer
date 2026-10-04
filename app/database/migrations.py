@@ -48,6 +48,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         ("supplies", "original_unit_price", "FLOAT"),
         ("supplies", "original_total_price", "INTEGER"),
     )),
+    Migration(4, "Categoria da sessão (Hunt, Rift, bosses de energia e Terror)", (
+        "CREATE INDEX IF NOT EXISTS ix_hunt_sessions_category ON hunt_sessions (category)",
+    ), columns=(
+        ("hunt_sessions", "category", "VARCHAR(20) NOT NULL DEFAULT 'hunt'"),
+    )),
 )
 
 LATEST_VERSION = MIGRATIONS[-1].version

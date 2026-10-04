@@ -36,6 +36,8 @@ def hunt_filter_conditions(hunt_filter: HuntFilter | None) -> list[ColumnElement
     if hunt_filter is None:
         return []
     conditions: list[ColumnElement[bool]] = []
+    if hunt_filter.categories:
+        conditions.append(HuntSession.category.in_([c.value for c in hunt_filter.categories]))
     if hunt_filter.date_from:
         start = datetime.combine(hunt_filter.date_from, time.min)
         conditions.append(HuntSession.start_datetime >= start)

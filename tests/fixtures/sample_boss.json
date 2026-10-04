@@ -1,0 +1,136 @@
+{
+  "Experience": [
+    {
+      "Player": "Rakanoth",
+      "Experience": 123500
+    }
+  ],
+  "Enemies Defeated": [
+    {
+      "Count": 1,
+      "Player": "Rakanoth",
+      "Enemy": "Iron-Masked Marauder",
+      "Ignored": false,
+      "Rare": false
+    }
+  ],
+  "Session": {
+    "Experience": 123500,
+    "Time to next level seconds": 11872,
+    "Supplies per hour": 0,
+    "Status": "Paused",
+    "Profit": 147900,
+    "Supplies": 0,
+    "Paused seconds": 0,
+    "Profit per hour": 1172775,
+    "Raw gains per hour": 1172775,
+    "Damage taken per second": 414,
+    "Raw gains": 147900,
+    "Kills": 1,
+    "Rare kills per hour": 0,
+    "Damage dealt per second": 4149,
+    "Rare kills": 0,
+    "Experience per hour": 979295,
+    "Kills per hour": 7,
+    "Damage taken": 188003,
+    "Damage dealt": 1883827,
+    "Session type": "player",
+    "Start": "2026-10-04 13:04:54",
+    "Time to next level": "03:17:52",
+    "Duration seconds": 454,
+    "Session ID": 651,
+    "Duration": "00:07:34"
+  },
+  "Damage": [
+    {
+      "Damage taken": 0,
+      "Player": "Rakanoth",
+      "Enemy": "Iron-Masked Marauder",
+      "Damage dealt": 1883827,
+      "Element": "Dragon"
+    },
+    {
+      "Damage taken": 188003,
+      "Player": "Rakanoth",
+      "Enemy": "Iron-Masked Marauder",
+      "Damage dealt": 0,
+      "Element": "Neutral"
+    }
+  ],
+  "Supplies": [
+    {
+      "Unit price": 0,
+      "Player": "Rakanoth",
+      "Total price": 0,
+      "Item": "chopped Lum berry",
+      "Ignored": null,
+      "Count": 1
+    },
+    {
+      "Unit price": 0,
+      "Player": "Rakanoth",
+      "Total price": 0,
+      "Item": "chopped Ganlon berry",
+      "Ignored": null,
+      "Count": 1
+    },
+    {
+      "Unit price": 0,
+      "Player": "Rakanoth",
+      "Total price": 0,
+      "Item": "chopped Salac berry",
+      "Ignored": null,
+      "Count": 1
+    },
+    {
+      "Unit price": 0,
+      "Player": "Rakanoth",
+      "Total price": 0,
+      "Item": "chopped Kee berry",
+      "Ignored": null,
+      "Count": 1
+    }
+  ],
+  "Drops": [
+    {
+      "Unit price": 50000,
+      "Player": "Rakanoth",
+      "Total price": 100000,
+      "Item": "Mystic Star",
+      "Ignored": null,
+      "Count": 2
+    },
+    {
+      "Unit price": 100,
+      "Player": "Rakanoth",
+      "Total price": 8100,
+      "Item": "one hundred dollars",
+      "Ignored": null,
+      "Count": 81
+    },
+    {
+      "Unit price": 5000,
+      "Player": "Rakanoth",
+      "Total price": 20000,
+      "Item": "Water Stone",
+      "Ignored": null,
+      "Count": 4
+    },
+    {
+      "Unit price": 50,
+      "Player": "Rakanoth",
+      "Total price": 19800,
+      "Item": "dragon scale collection",
+      "Ignored": null,
+      "Count": 396
+    },
+    {
+      "Unit price": 0,
+      "Player": "Rakanoth",
+      "Total price": 0,
+      "Item": "Echo Shard",
+      "Ignored": null,
+      "Count": 15
+    }
+  ]
+}

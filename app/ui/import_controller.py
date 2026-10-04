@@ -4,6 +4,9 @@
 * Vários arquivos (seleção múltipla, pasta ou arrastar e soltar): duplicatas são
   ignoradas sem perguntar e aparecem no resumo final; com muitos arquivos, uma
   barra de progresso permite cancelar.
+
+A categoria das sessões vem de ``category_provider`` (a janela principal informa a
+aba de Bosses aberta); ``None`` deixa o ``HuntService`` decidir (pasta, inimigos ou Hunt).
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from PySide6.QtCore import QMimeData, QObject, Qt, Signal
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog, QWidget
 
 from app.config import IMPORTS_DIR
+from app.services.categories import Category, category_dir
 from app.services.dto import ImportResult, ImportStatus
 from app.services.hunt_service import HuntService
 from app.services.json_files import ANALYZER_EXTENSIONS, collect_analyzer_files
@@ -47,8 +51,10 @@ class ImportController(QObject):
         super().__init__(parent_widget)
         self._service = service
         self._parent = parent_widget
-        # Pasta onde os textos colados são salvos como arquivo .json.
+        # Pasta onde os textos colados são salvos como arquivo .json (bosses: subpastas).
         self.paste_save_dir = paste_save_dir
+        # Categoria em que as próximas importações devem entrar (None: automática).
+        self.category_provider: Callable[[], Category | None] = lambda: None
 
     @staticmethod
     def _start_dir() -> str:
@@ -71,16 +77,19 @@ class ImportController(QObject):
         if not files:
             self.show_batch_report("Nenhum arquivo .json ou .tsv foi encontrado.", [])
             return []
+        category = self.category_provider()
         if len(files) == 1:
             results = [self._import_confirming_duplicate(
-                lambda force: self._service.import_file(files[0], allow_duplicate=force))]
+                lambda force: self._service.import_file(files[0], allow_duplicate=force,
+                                                        category=category))]
             cancelled = False
         else:
-            results, cancelled = self._import_batch(files)
+            results, cancelled = self._import_batch(files, category)
         self._finish(results, cancelled)
         return results
 
-    def _import_batch(self, files: Sequence[Path]) -> tuple[list[ImportResult], bool]:
+    def _import_batch(self, files: Sequence[Path],
+                      category: Category | None) -> tuple[list[ImportResult], bool]:
         progress = None
         if len(files) >= PROGRESS_THRESHOLD:
             progress = QProgressDialog("Importando Hunts…", "Cancelar", 0, len(files),
@@ -95,23 +104,28 @@ class ImportController(QObject):
                 progress.setValue(index)
                 if progress.wasCanceled():
                     break
-            results.append(self._service.import_file(path))  # duplicatas: ignoradas
+            # Duplicatas: ignoradas.
+            results.append(self._service.import_file(path, category=category))
         cancelled = len(results) < len(files)
         if progress is not None:
             progress.setValue(len(files))
         return results, cancelled
 
     def paste_and_import(self) -> ImportResult | None:
-        dialog = PasteJsonDialog(self.paste_save_dir, self._parent)
+        category = self.category_provider()
+        save_dir = (category_dir(self.paste_save_dir, category) if category is not None
+                    else self.paste_save_dir)
+        dialog = PasteJsonDialog(save_dir, self._parent, category)
         if dialog.exec() != PasteJsonDialog.DialogCode.Accepted:
             return None
         return self.import_pasted(dialog.text())
 
     def import_pasted(self, text: str) -> ImportResult:
         """Importa o texto colado (JSON ou TSV); se importado, também vira um arquivo .json."""
+        category = self.category_provider()
         result = self._import_confirming_duplicate(
             lambda force: self._service.import_pasted_text(
-                text, self.paste_save_dir, allow_duplicate=force
+                text, self.paste_save_dir, allow_duplicate=force, category=category
             )
         )
         self._finish([result])

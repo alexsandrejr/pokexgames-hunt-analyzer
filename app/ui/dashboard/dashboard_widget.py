@@ -1,4 +1,7 @@
-"""Página Dashboard: cards e gráficos das Hunts filtradas."""
+"""Página Dashboard: cards e gráficos das Hunts filtradas.
+
+Só a categoria Hunt entra aqui; os bosses têm o seu resumo na página Bosses.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,7 @@ from datetime import datetime
 
 from PySide6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget
 
+from app.services.categories import Category
 from app.services.dto import HuntSummary
 from app.services.hunt_service import HuntService
 from app.services.statistics_service import OverviewStats, StatisticsService
@@ -53,13 +57,14 @@ def chronological(hunts: Sequence[HuntSummary]) -> list[HuntSummary]:
     return sorted(hunts, key=lambda h: (h.start_datetime or datetime.max, h.id))
 
 
-def chart_points(hunts: Sequence[HuntSummary], attribute: str) -> list[ChartPoint]:
+def chart_points(hunts: Sequence[HuntSummary], attribute: str,
+                 noun: str = "Hunt") -> list[ChartPoint]:
     return [
         ChartPoint(
             key=hunt.id,
             label=hunt.start_datetime.strftime("%d/%m") if hunt.start_datetime else "—",
             value=getattr(hunt, attribute),
-            title=f"Hunt {format_text(hunt.session_id)} · {format_datetime_short(hunt.start_datetime)}",
+            title=f"{noun} {format_text(hunt.session_id)} · {format_datetime_short(hunt.start_datetime)}",
         )
         for hunt in hunts
     ]
@@ -127,7 +132,7 @@ class DashboardPage(QWidget):
         outer.addWidget(scroll)
 
     def refresh(self) -> None:
-        hunt_filter = self._filters.current
+        hunt_filter = self._filters.current.scoped(Category.HUNT)
         stats = self._statistics.overview(hunt_filter)
         self._show_cards(stats, filtered=not hunt_filter.is_empty)
 

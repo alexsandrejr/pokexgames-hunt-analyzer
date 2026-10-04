@@ -8,12 +8,14 @@ from PySide6.QtWidgets import QLabel, QScrollArea, QTabWidget, QVBoxLayout, QWid
 from app.services.dto import RankedEntry
 from app.services.export_documents import report_document
 from app.services.export_service import ExportDocument
+from app.services.filters import HuntFilter
 from app.services.statistics_service import (
     MetricStats,
     StatisticsService,
 )
 from app.ui.filters.filter_controller import FilterController
 from app.ui.widgets.cards import ResponsiveGrid, StatCard
+from app.ui.widgets.category_scope import CategoryScopeCombo
 from app.ui.widgets.export_button import ExportButton
 from app.ui.widgets.page import PAGE_MARGINS, PageHeader
 from app.ui.widgets.record_table import Column, RecordTable
@@ -96,7 +98,10 @@ class ReportsPage(QWidget):
         self._filters = filters
 
         self._header = PageHeader("Relatórios", "Estatísticas agregadas das Hunts filtradas")
+        self.scope = CategoryScopeCombo()
+        self.scope.currentIndexChanged.connect(self.refresh)
         self.export_button = ExportButton(self._export_document)
+        self._header.add_action(self.scope)
         self._header.add_action(self.export_button)
         self._cards = {
             "hunts": StatCard("Hunts analisadas"),
@@ -158,19 +163,22 @@ class ReportsPage(QWidget):
         layout.addWidget(table)
         return widget
 
+    def _filter(self) -> HuntFilter:
+        return self._filters.current.scoped(*self.scope.categories())
+
     def _export_document(self) -> ExportDocument:
-        hunt_filter = self._filters.current
+        hunt_filter = self._filter()
         return report_document(
             self._statistics.overview(hunt_filter),
             self._statistics.metric_breakdown(hunt_filter),
             self._statistics.top_drops(hunt_filter, RANKING_LIMIT),
             self._statistics.top_supplies(hunt_filter, RANKING_LIMIT),
             self._statistics.top_enemies(hunt_filter, RANKING_LIMIT),
-            hunt_filter.describe(),
+            [self.scope.describe(), *hunt_filter.describe()],
         )
 
     def refresh(self) -> None:
-        hunt_filter = self._filters.current
+        hunt_filter = self._filter()
         overview = self._statistics.overview(hunt_filter)
         scope = "das Hunts filtradas" if not hunt_filter.is_empty else "de todas as Hunts"
         period = (f" · {format_date(overview.first_start)} a {format_date(overview.last_start)}"

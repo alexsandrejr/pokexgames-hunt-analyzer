@@ -28,6 +28,15 @@ COMO IMPORTAR SUAS HUNTS
 Hunts repetidas são detectadas e não entram duas vezes.
 
 
+BOSSES
+------
+A página Bosses tem uma aba para cada tipo: Rifts, Energia Vermelha, Energia
+Azul e Terrors, separados das Hunts. Para registrar um boss, abra a aba do tipo
+certo e importe ali (arquivo, pasta, arrastar ou colar). Depois da primeira
+vez, as próximas sessões do mesmo boss vão para a aba certa sozinhas. Se algo
+cair no lugar errado, selecione a sessão e use "Mover".
+
+
 PREÇOS DOS ITENS
 ----------------
 Na página Preços você define o seu próprio preço para qualquer item (aceita

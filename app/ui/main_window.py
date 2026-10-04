@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
@@ -17,11 +18,13 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QStackedWidget, QWidget
 
 from app.services.backup_service import BackupService
+from app.services.categories import Category
 from app.services.entity_report import EntityKind
 from app.services.hunt_service import HuntService
 from app.services.price_service import PriceService
 from app.services.settings_service import AppSettings, SettingsStore
 from app.services.statistics_service import StatisticsService
+from app.ui.bosses.bosses_widget import BossesPage
 from app.ui.dashboard.dashboard_widget import DashboardPage
 from app.ui.hunts.hunts_widget import HuntsPage
 from app.ui.filters.filter_controller import FilterController
@@ -41,6 +44,7 @@ from app.utils.constants import APP_NAME, APP_VERSION
 NAV_ITEMS = [
     NavItem("dashboard", "Dashboard", "dashboard"),
     NavItem("hunts", "Hunts", "hunts"),
+    NavItem("bosses", "Bosses", "bosses"),
     NavItem("reports", "Relatórios", "reports"),
     NavItem("items", "Itens", "items"),
     NavItem("enemies", "Inimigos", "enemies"),
@@ -66,6 +70,7 @@ class MainWindow(QMainWindow):
         self.importer = ImportController(hunt_service, self)
         self.importer.hunts_imported.connect(self._on_hunts_imported)
         self.importer.status_message.connect(lambda text: self.statusBar().showMessage(text, 8000))
+        self.importer.category_provider = self._import_category
 
         self._hunt_service = hunt_service
         self.filters = FilterController(self)
@@ -75,10 +80,13 @@ class MainWindow(QMainWindow):
         self.dashboard_page = DashboardPage(hunt_service, statistics_service, self.filters,
                                             self.open_hunt)
         self.hunts_page = HuntsPage(hunt_service, self.importer, self.filters)
+        self.bosses_page = BossesPage(hunt_service, statistics_service, self.importer,
+                                      self.filters, self.open_hunt)
         self.reports_page = ReportsPage(statistics_service, self.filters)
         self.pages: dict[str, QWidget] = {
             "dashboard": self.dashboard_page,
             "hunts": self.hunts_page,
+            "bosses": self.bosses_page,
             "reports": self.reports_page,
             "items": EntityReportPage(
                 "Itens", "Drops e supplies ao longo das Hunts filtradas",
@@ -180,13 +188,35 @@ class MainWindow(QMainWindow):
         if callable(refresh):
             refresh()
 
+    def _import_category(self) -> Category | None:
+        """Categoria das importações: a aba de Bosses aberta; fora dela, automática."""
+        if self.stack.currentWidget() is self.bosses_page:
+            return self.bosses_page.current_category
+        return None
+
     def _on_hunts_imported(self, hunt_ids: list[int]) -> None:
-        self.show_page("hunts")
-        self.hunts_page.select_hunts(hunt_ids)
-        hidden = len(hunt_ids) - len(self.hunts_page.selected_ids())
+        """Mostra as sessões importadas na página (e aba) da categoria em que entraram."""
+        summaries = self._hunt_service.get_summaries(hunt_ids)
+        counts = Counter(Category.from_value(summary.category) for summary in summaries)
+        target = counts.most_common(1)[0][0] if counts else Category.HUNT
+        ids = [s.id for s in summaries if Category.from_value(s.category) is target]
+        if target.is_boss:
+            self.show_page("bosses")
+            self.bosses_page.show_category(target, ids)
+            selected = self.bosses_page.views[target].sessions.selected_ids()
+        else:
+            self.show_page("hunts")
+            self.hunts_page.select_hunts(ids)
+            selected = self.hunts_page.selected_ids()
+        if len(counts) > 1:
+            parts = ", ".join(f"{count} em {category.plural}"
+                              for category, count in counts.most_common())
+            self.statusBar().showMessage(f"Sessões importadas: {parts}.", 10000)
+        hidden = len(ids) - len(selected)
         if hidden > 0:
             self.statusBar().showMessage(
-                f"{hidden} Hunt(s) importada(s) não aparecem por causa dos filtros ativos.", 8000)
+                f"{hidden} sessão(ões) importada(s) não aparecem por causa dos filtros ativos.",
+                8000)
 
     def _on_data_replaced(self) -> None:
         """Após restaurar um backup: limpa filtros e recarrega listas e contagens."""

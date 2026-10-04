@@ -54,7 +54,8 @@ class MigrationTests(unittest.TestCase):
         old.dispose()
 
         database = self.open()
-        self.assertEqual([m.version for m in database.pending_migrations()], [1, 2, 3])
+        self.assertEqual([m.version for m in database.pending_migrations()],
+                         list(range(1, LATEST_VERSION + 1)))
         database.create_schema()
         self.assertEqual(database.schema_version(), LATEST_VERSION)
         self.assertEqual(HuntService(database).count_hunts(), 1)
@@ -74,7 +75,7 @@ class MigrationTests(unittest.TestCase):
         old.dispose()
 
         database = self.open()
-        self.assertEqual([m.version for m in database.create_schema()], [3])
+        self.assertEqual([m.version for m in database.create_schema()], [3, 4])
         with database.engine.connect() as connection:
             rows = connection.execute(text(
                 "SELECT unit_price, original_unit_price, total_price, original_total_price "

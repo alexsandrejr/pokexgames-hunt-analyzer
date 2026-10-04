@@ -221,6 +221,8 @@ def _stylesheet(c: dict[str, str]) -> str:
     QTabWidget::pane {{
         border: 1px solid {c['border']}; border-radius: 10px; background: {c['surface']}; top: -1px;
     }}
+    /* Abas de categoria (Bosses): sem moldura, as abas internas já têm a sua. */
+    QTabWidget#CategoryTabs::pane {{ border: none; background: transparent; top: 0px; }}
     QTabBar::tab {{
         background: transparent; color: {c['muted']}; padding: 8px 16px; margin-right: 2px;
         border: none; border-bottom: 2px solid transparent;

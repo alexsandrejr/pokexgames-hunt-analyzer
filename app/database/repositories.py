@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, delete, func, null, or_, select
+from sqlalchemy import ColumnElement, delete, func, null, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.database.models import Drop, EnemyDefeated, HuntSession, ItemPrice, Supply
@@ -36,6 +36,7 @@ SUMMARY_COLUMNS = (
     HuntSession.experience,
     HuntSession.experience_per_hour,
     HuntSession.source_file,
+    HuntSession.category,
 )
 
 # (chave, coluna do total, coluna da taxa) usadas no relatório de métricas.
@@ -127,6 +128,36 @@ class HuntRepository:
                 & (HuntSession.start_datetime == start_datetime)
             )
         stmt = select(HuntSession.id).where(or_(*conditions)).order_by(HuntSession.id)
+        return list(self.session.scalars(stmt))
+
+    def set_category(self, hunt_ids: Iterable[int], category: str) -> int:
+        ids = list(hunt_ids)
+        if not ids:
+            return 0
+        result = self.session.execute(
+            update(HuntSession).where(HuntSession.id.in_(ids)).values(category=category))
+        return result.rowcount or 0
+
+    def enemy_categories(self, names: Iterable[str]) -> dict[str, set[str]]:
+        """``{nome em minúsculas: categorias das sessões em que o inimigo apareceu}``."""
+        keys = {name.strip().lower() for name in names}
+        if not keys:
+            return {}
+        enemy = func.lower(EnemyDefeated.enemy)
+        stmt = (
+            select(enemy, HuntSession.category)
+            .join(HuntSession, HuntSession.id == EnemyDefeated.hunt_id)
+            .where(enemy.in_(keys))
+            .distinct()
+        )
+        found: dict[str, set[str]] = {}
+        for name, category in self.session.execute(stmt):
+            found.setdefault(name, set()).add(category)
+        return found
+
+    def raw_documents(self, hunt_filter: HuntFilter | None = None) -> list[str]:
+        """JSON original das Hunts filtradas (para seções que não têm tabela própria)."""
+        stmt = select(HuntSession.raw_json).where(*hunt_filter_conditions(hunt_filter))
         return list(self.session.scalars(stmt))
 
     def delete_many(self, hunt_ids: Iterable[int]) -> int:

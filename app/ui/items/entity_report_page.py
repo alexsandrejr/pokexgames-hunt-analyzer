@@ -20,12 +20,14 @@ from app.services.dto import FilterOptions
 from app.services.entity_report import EntityHuntRow, EntityKind, EntityReport
 from app.services.export_documents import entity_document
 from app.services.export_service import ExportDocument
+from app.services.filters import HuntFilter
 from app.services.hunt_service import HuntService
 from app.services.rates import rate_per_hour
 from app.services.statistics_service import StatisticsService
 from app.ui.charts.charts import ChartPoint, HuntSeriesChart
 from app.ui.filters.filter_controller import FilterController
 from app.ui.widgets.cards import ResponsiveGrid, StatCard
+from app.ui.widgets.category_scope import CategoryScopeCombo
 from app.ui.widgets.combos import searchable_combo, set_combo_options
 from app.ui.widgets.export_button import ExportButton
 from app.ui.widgets.page import PAGE_MARGINS, EmptyState, PageHeader
@@ -81,8 +83,11 @@ class EntityReportPage(QWidget):
         self.report: EntityReport | None = None
 
         self._header = PageHeader(title, subtitle)
+        self.scope = CategoryScopeCombo()
+        self.scope.currentIndexChanged.connect(self._on_scope_changed)
         self.export_button = ExportButton(self._export_document)
         self.export_button.setEnabled(False)
+        self._header.add_action(self.scope)
         self._header.add_action(self.export_button)
 
         self.kind_combo = QComboBox()
@@ -163,6 +168,13 @@ class EntityReportPage(QWidget):
         if self.report is not None:
             self.analyze(self.report.name, self.report.kind)
 
+    def _filter(self) -> HuntFilter:
+        return self._filters.current.scoped(*self.scope.categories())
+
+    def _on_scope_changed(self) -> None:
+        if self.report is not None:
+            self.analyze(self.report.name, self.report.kind)
+
     def _reload_names(self) -> None:
         set_combo_options(self.name_combo, _options_for(self.kind, self._options))
 
@@ -173,7 +185,7 @@ class EntityReportPage(QWidget):
         if not name:
             return
         self.name_combo.setEditText(name)
-        self.report = self._statistics.entity_report(self.kind, name, self._filters.current)
+        self.report = self._statistics.entity_report(self.kind, name, self._filter())
         self._show_report(self.report)
 
     # ------------------------------------------------------------- exibição
@@ -254,4 +266,5 @@ class EntityReportPage(QWidget):
     def _export_document(self) -> ExportDocument | None:
         if self.report is None:
             return None
-        return entity_document(self.report, self._filters.current.describe())
+        return entity_document(self.report,
+                               [self.scope.describe(), *self._filters.current.describe()])

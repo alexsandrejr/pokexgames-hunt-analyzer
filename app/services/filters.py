@@ -3,16 +3,20 @@
 Um ``HuntFilter`` combina todos os critérios com **E**: só passam as Hunts que
 atendem a todos. Listas de condições (inimigos, itens, métricas) permitem
 consultas como "Nightmare ore > 50 E Nightmare gem > 1000".
+
+``categories`` não é um critério do painel de filtros: é o escopo da página
+(Hunts, uma aba de Bosses...), aplicado com ``scoped`` sobre o filtro do usuário.
 O repositório traduz o filtro em SQL (``app/database/query_filters.py``).
 """
 
 from __future__ import annotations
 
 import calendar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from enum import Enum
 
+from app.services.categories import Category
 from app.utils.formatters import format_date, format_duration, format_number
 
 
@@ -124,10 +128,16 @@ class HuntFilter:
     enemies: tuple[EnemyCondition, ...] = field(default_factory=tuple)
     items: tuple[ItemCondition, ...] = field(default_factory=tuple)
     metrics: tuple[MetricCondition, ...] = field(default_factory=tuple)
+    # Vazio: todas as categorias. Fica fora de ``describe``/``is_empty`` (é o escopo da página).
+    categories: tuple[Category, ...] = field(default_factory=tuple)
 
     @property
     def is_empty(self) -> bool:
         return not self.describe()
+
+    def scoped(self, *categories: Category) -> HuntFilter:
+        """O mesmo filtro restrito às categorias informadas (nenhuma: todas)."""
+        return replace(self, categories=tuple(categories))
 
     def describe(self) -> list[str]:
         """Descrição legível de cada critério ativo (usada nos resumos da interface)."""

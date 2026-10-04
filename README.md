@@ -4,7 +4,7 @@ Aplicação desktop para **armazenar, organizar e analisar** as sessões de Hunt
 
 Cada arquivo importado vira um **registro histórico permanente** no banco SQLite local, com seus inimigos derrotados, drops e supplies em tabelas relacionadas. O JSON original é sempre preservado por completo (um TSV é guardado já convertido para JSON, com todas as seções), então campos novos que o Analyzer venha a adicionar não se perdem.
 
-> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Dashboard com gráficos, Relatórios, relatórios por item e por inimigo, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
+> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Dashboard com gráficos, Relatórios, relatórios por item e por inimigo, página Bosses (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
 
 ## Baixar
 
@@ -124,10 +124,30 @@ O `Session ID` sozinho não é usado, pois não há garantia de que seja único.
 
 O JSON do Analyzer não traz o player na seção `Session`. Ele é obtido do campo `Player` das listas. Em sessões com vários players, os nomes ficam unidos por vírgula.
 
+## Bosses
+
+Além das Hunts, o app separa os quatro tipos de boss do PokeXGames: **Rifts**, **Energia Vermelha**, **Energia Azul** e **Terrors**. O JSON exportado pelo Analyzer é o mesmo de uma Hunt, então cada sessão recebe uma **categoria** ao ser importada:
+
+1. **Pasta do arquivo**: arquivos em `imports/rifts/`, `imports/energia_vermelha/`, `imports/energia_azul/` ou `imports/terrors/` entram na categoria da pasta.
+2. **Aba aberta**: importar (arquivo, pasta, arrastar e soltar ou colar) com uma aba da página **Bosses** aberta grava as sessões naquele tipo de boss.
+3. **Boss já conhecido**: se todos os inimigos da sessão já apareceram só em sessões de um mesmo tipo de boss, ela vai para lá sozinha, mesmo importada fora da página Bosses.
+4. Caso contrário, a sessão é uma **Hunt**.
+
+Errou a categoria? Selecione as sessões e use **Mover** (na página Hunts ou em qualquer aba de Bosses). As sessões antigas continuam como Hunts até serem movidas.
+
+JSONs de boss colados são salvos na subpasta da categoria (ex.: `imports/terrors/hunt_651_2026-10-04_13-04-54.json`), então reimportar a pasta `imports/` mantém cada sessão no lugar certo.
+
+Cada aba de Bosses tem:
+
+- **Resumo**: cards com sessões, kills, tempo total e tempo por kill, profit e profit por kill, Profit/h (total ÷ tempo e média das sessões), supplies e experience por kill, Damage dealt/s e Damage taken/s; tabelas de bosses derrotados, drops mais valiosos e **dano por elemento** (causado e recebido, da seção `Damage` do JSON); e gráficos por sessão (Profit, Profit/h, Duração e Damage dealt/s) a partir de 2 sessões.
+- **Sessões**: a mesma lista da página Hunts (pesquisa, detalhes, comparação, exclusão, exportação), só com as sessões daquele tipo de boss.
+
+O **Dashboard** e a página **Hunts** mostram só Hunts. **Relatórios**, **Itens** e **Inimigos** têm um seletor no topo (Hunts, Todos os bosses, um tipo de boss ou Hunts e bosses), que começa em Hunts para os bosses não misturarem as médias.
+
 ## Funcionalidades
 
-- **Filtros** (no topo do Dashboard, Hunts e Relatórios): um único filtro vale para as três páginas. Veja [Filtros](#filtros).
-- **Dashboard**: cards com Hunts analisadas, tempo total, kills, profit, Profit/h médio, Kills/h médio, supplies e raw gains, e 8 gráficos por Hunt em ordem cronológica: Profit/h, Kills/h, Profit, Supplies/h, Damage dealt/s, Damage taken/s, Kills e Duração. Passe o mouse para ver o valor; clique em uma barra para abrir a Hunt. Os gráficos aparecem a partir de 2 Hunts, e com mais de 60 Hunts viram linha.
+- **Filtros** (no topo do Dashboard, Hunts, Bosses e Relatórios): um único filtro vale para todas essas páginas. Veja [Filtros](#filtros).
+- **Dashboard** (só Hunts; bosses ficam na página [Bosses](#bosses)): cards com Hunts analisadas, tempo total, kills, profit, Profit/h médio, Kills/h médio, supplies e raw gains, e 8 gráficos por Hunt em ordem cronológica: Profit/h, Kills/h, Profit, Supplies/h, Damage dealt/s, Damage taken/s, Kills e Duração. Passe o mouse para ver o valor; clique em uma barra para abrir a Hunt. Os gráficos aparecem a partir de 2 Hunts, e com mais de 60 Hunts viram linha.
   O **Profit/h médio** (média simples dos Profit/h de cada Hunt) é exibido separado do **Profit total ÷ tempo total** (ponderado pela duração).
 - **Hunts**: tabela ordenável por qualquer coluna, pesquisa rápida, seleção múltipla, detalhes, **comparação**, exclusão (`Del`), exportação e atualização (`F5`).
 - **Comparação**: selecione 2 ou mais Hunts (`Ctrl`+clique ou `Shift`+clique) e clique em **Comparar**. As métricas ficam nas linhas e as Hunts nas colunas, lado a lado, em ordem cronológica e sem ranking. Pode ser exportada.
@@ -220,6 +240,7 @@ pokexgames-hunt-analyzer/
 │   │   ├── json_importer.py     # Leitura, validação e extração do JSON (sem banco)
 │   │   ├── hunt_service.py      # Importação (arquivo ou texto colado), duplicidade, consulta, exclusão
 │   │   ├── json_files.py        # Salva JSON colado como arquivo (nome sugerido, sem sobrescrever)
+│   │   ├── categories.py        # Categorias: Hunt, Rift, Energia Vermelha/Azul, Terror
 │   │   ├── filters.py           # HuntFilter e condições (sem SQL, sem interface)
 │   │   ├── advanced_search.py   # Pesquisa avançada em texto → condições do filtro
 │   │   ├── entity_report.py     # Relatório de um item/inimigo ao longo das Hunts
@@ -239,6 +260,7 @@ pokexgames-hunt-analyzer/
 │   │   ├── charts/              # Gráficos pyqtgraph (por Hunt e barras ordenadas)
 │   │   ├── filters/             # Estado do filtro + painel de filtros
 │   │   ├── dashboard/           # Página Dashboard
+│   │   ├── bosses/              # Página Bosses (uma aba por tipo de boss)
 │   │   ├── hunts/               # Lista de Hunts, detalhes, comparação e colar JSON
 │   │   ├── items/               # Páginas Itens e Inimigos
 │   │   ├── reports/             # Página Relatórios
@@ -270,7 +292,7 @@ $env:PXG_HUNTS_DB = "C:\caminho\outro.db"; python main.py
 
 | Tabela | Conteúdo | Índices |
 |---|---|---|
-| `hunt_sessions` | Métricas da seção `Session`, `raw_json` (texto original), `content_hash`, `source_file`, `created_at` | `session_id`, `player`, `start_datetime`, `content_hash`, (`session_id`, `player`, `start_datetime`) |
+| `hunt_sessions` | Métricas da seção `Session`, `category` (hunt, rift, boss_red, boss_blue, terror), `raw_json` (texto original), `content_hash`, `source_file`, `created_at` | `session_id`, `player`, `start_datetime`, `category`, `content_hash`, (`session_id`, `player`, `start_datetime`) |
 | `enemies_defeated` | `enemy`, `count`, `player`, `rare`, `ignored` | `hunt_id`, `enemy` |
 | `drops` | `item`, `count`, `unit_price`, `total_price`, `player`, `ignored` | `hunt_id`, `item` |
 | `supplies` | mesmas colunas de `drops` | `hunt_id`, `item` |

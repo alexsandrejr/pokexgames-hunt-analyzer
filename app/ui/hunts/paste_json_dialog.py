@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.services.categories import Category
 from app.services.json_importer import AnalyzerImportError, parse_analyzer_text
 from app.services.tsv_importer import looks_like_tsv
 from app.ui.icons import icon
@@ -26,7 +27,8 @@ VALIDATION_DELAY_MS = 250
 
 
 class PasteJsonDialog(QDialog):
-    def __init__(self, save_dir: Path, parent: QWidget | None = None) -> None:
+    def __init__(self, save_dir: Path, parent: QWidget | None = None,
+                 category: Category | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Colar JSON/TSV do Analyzer")
         self.setWindowIcon(icon("app"))
@@ -51,8 +53,11 @@ class PasteJsonDialog(QDialog):
         self.import_button.setDefault(True)
         self.import_button.clicked.connect(self.accept)
 
+        destination = (f"A sessão vai para {category.plural}. " if category is not None
+                       and category.is_boss else "")
         hint = QLabel(
-            f"Ao importar, o texto também é salvo como arquivo .json em:\n{save_dir}",
+            f"{destination}Ao importar, o texto também é salvo como arquivo .json em:\n"
+            f"{save_dir}",
             objectName="MutedLabel",
         )
         hint.setWordWrap(True)

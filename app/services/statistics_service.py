@@ -9,6 +9,8 @@ Atenção à diferença entre as duas formas de "Profit/h":
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -19,7 +21,9 @@ from app.services.dto import RankedEntry
 from app.services.entity_report import EntityHuntRow, EntityKind, EntityReport
 from app.services.filters import HuntFilter, ItemSource
 from app.services.rates import rate_per_hour, rate_per_second
+from app.utils.constants import AnalyzerKeys, EntryKeys
 from app.utils.formatters import ValueKind
+from app.utils.validators import to_int, to_str
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,31 @@ class OverviewStats:
     def raw_gains_per_total_hour(self) -> float | None:
         return rate_per_hour(self.total_raw_gains, self.total_duration_seconds)
 
+    # Por kill: em sessões de boss, quanto rende (e quanto custa) cada boss derrotado.
+
+    def _per_kill(self, total: float) -> float | None:
+        return total / self.total_kills if self.total_kills else None
+
+    @property
+    def duration_per_kill(self) -> float | None:
+        return self._per_kill(self.total_duration_seconds)
+
+    @property
+    def profit_per_kill(self) -> float | None:
+        return self._per_kill(self.total_profit)
+
+    @property
+    def supplies_per_kill(self) -> float | None:
+        return self._per_kill(self.total_supplies)
+
+    @property
+    def raw_gains_per_kill(self) -> float | None:
+        return self._per_kill(self.total_raw_gains)
+
+    @property
+    def experience_per_kill(self) -> float | None:
+        return self._per_kill(self.total_experience)
+
 
 class RateUnit(Enum):
     HOUR = "/h"
@@ -98,6 +127,48 @@ METRIC_DEFINITIONS: tuple[tuple[str, str, ValueKind, RateUnit | None], ...] = (
     ("damage_dealt", "Damage dealt", ValueKind.NUMBER, RateUnit.SECOND),
     ("damage_taken", "Damage taken", ValueKind.NUMBER, RateUnit.SECOND),
 )
+
+
+@dataclass(frozen=True)
+class ElementDamage:
+    """Dano causado e recebido de um elemento, somado nas sessões (seção ``Damage``)."""
+
+    element: str
+    dealt: int
+    taken: int
+    dealt_share: float | None  # fração do dano causado total
+    taken_share: float | None  # fração do dano recebido total
+
+
+def damage_by_element(documents: Iterable[str]) -> list[ElementDamage]:
+    """Soma a seção ``Damage`` dos JSONs originais, do elemento que mais causou dano ao menor.
+
+    A seção não tem tabela própria no banco; JSONs sem ela (ou inválidos) são ignorados.
+    """
+    totals: dict[str, list[int]] = {}
+    for text in documents:
+        try:
+            entries = json.loads(text).get(AnalyzerKeys.DAMAGE)
+        except (ValueError, AttributeError):
+            continue
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            element = to_str(entry.get(EntryKeys.ELEMENT)) or "Sem elemento"
+            pair = totals.setdefault(element, [0, 0])
+            pair[0] += to_int(entry.get(EntryKeys.DAMAGE_DEALT), default=0)
+            pair[1] += to_int(entry.get(EntryKeys.DAMAGE_TAKEN), default=0)
+    all_dealt = sum(dealt for dealt, _taken in totals.values())
+    all_taken = sum(taken for _dealt, taken in totals.values())
+    rows = [
+        ElementDamage(element, dealt, taken,
+                      dealt / all_dealt if all_dealt else None,
+                      taken / all_taken if all_taken else None)
+        for element, (dealt, taken) in totals.items()
+    ]
+    return sorted(rows, key=lambda row: (-row.dealt, -row.taken, row.element.lower()))
 
 
 def build_metric_stats(values: dict) -> list[MetricStats]:
@@ -154,6 +225,11 @@ class StatisticsService:
         with self.database.session() as session:
             rows = HuntRepository(session).entity_per_hunt(kind.value, name, hunt_filter)
         return EntityReport(kind, name.strip(), tuple(EntityHuntRow(**row) for row in rows))
+
+    def damage_by_element(self, hunt_filter: HuntFilter | None = None) -> list[ElementDamage]:
+        with self.database.session() as session:
+            documents = HuntRepository(session).raw_documents(hunt_filter)
+        return damage_by_element(documents)
 
     def _top(self, kind: str, hunt_filter: HuntFilter | None, limit: int) -> list[RankedEntry]:
         with self.database.session() as session:

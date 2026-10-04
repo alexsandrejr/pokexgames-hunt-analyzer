@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.database.models import HuntSession
+from app.services.categories import Category
 from app.services.hunt_service import HuntService
 from app.ui.hunts.detail_tabs import ChartsTab, DropsTab, EnemiesTab, JsonTab, SuppliesTab
 from app.ui.icons import icon
@@ -57,6 +58,7 @@ class FieldGroup(QFrame):
 def summary_groups(hunt: HuntSession) -> list[tuple[str, list[Field]]]:
     return [
         ("Sessão", [
+            ("Categoria", Category.from_value(hunt.category).plural),
             ("Player", format_text(hunt.player)),
             ("Session ID", format_text(hunt.session_id)),
             ("Data", format_datetime(hunt.start_datetime)),
@@ -162,7 +164,7 @@ class HuntDetailsDialog(QDialog):
         layout.addWidget(self.tabs, 1)
 
     def _title(self) -> str:
-        return f"Hunt {format_text(self.hunt.session_id)}"
+        return f"{Category.from_value(self.hunt.category).label} {format_text(self.hunt.session_id)}"
 
 
 def show_hunt_details(service: HuntService, hunt_id: int,

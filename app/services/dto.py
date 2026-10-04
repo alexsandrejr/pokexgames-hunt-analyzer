@@ -7,6 +7,8 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
+from app.services.categories import Category
+
 
 class ImportStatus(Enum):
     IMPORTED = "imported"
@@ -24,6 +26,7 @@ class ImportResult:
     warnings: list[str] = field(default_factory=list)
     detail: str | None = None
     saved_path: Path | None = None  # arquivo criado a partir de um JSON colado
+    category: Category | None = None  # categoria em que a sessão foi gravada
 
     @property
     def source_name(self) -> str:
@@ -55,6 +58,7 @@ class HuntSummary:
     experience: int | None = None
     experience_per_hour: float | None = None
     source_file: str | None = None
+    category: str = Category.HUNT.value
 
 
 @dataclass(frozen=True)
