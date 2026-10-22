@@ -46,6 +46,11 @@ ITEM_COLUMNS: list[Column[ItemEntry]] = [
     Column("Player", lambda i: i.player),
     Column("Ignored", lambda i: i.ignored, format_bool, centered=True),
 ]
+DROP_COLUMNS: list[Column[ItemEntry]] = [
+    *ITEM_COLUMNS,
+    Column("Origem", lambda d: "Chat" if d.from_chat else "Analyzer", centered=True,
+           tooltip="Chat: item de uma mensagem \"Você recebeu:\", fora do JSON do Analyzer"),
+]
 
 
 def _summary_label(text: str) -> QLabel:
@@ -91,7 +96,12 @@ class DropsTab(_TableTab):
         summary = (f"Valor total dos drops: {_strong(format_money(value))} "
                    f"&nbsp;·&nbsp; Quantidade de itens: {_strong(format_number(quantity))} "
                    f"&nbsp;·&nbsp; Tipos: {_strong(format_number(len(drops)))}")
-        super().__init__(summary, ITEM_COLUMNS, drops, 3,
+        chat_drops = [drop for drop in drops if drop.from_chat]
+        if chat_drops:
+            chat_value = sum(drop.total_price or 0 for drop in chat_drops)
+            summary += (f" &nbsp;·&nbsp; Do chat: {_strong(format_number(len(chat_drops)))} "
+                        f"({_strong(format_money(chat_value))})")
+        super().__init__(summary, DROP_COLUMNS, drops, 3,
                          "Nenhum drop registrado nesta Hunt.", parent)
 
 

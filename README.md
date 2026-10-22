@@ -4,7 +4,7 @@ Aplicação desktop para **armazenar, organizar e analisar** as sessões de Hunt
 
 Cada arquivo importado vira um **registro histórico permanente** no banco SQLite local, com seus inimigos derrotados, drops e supplies em tabelas relacionadas. O JSON original é sempre preservado por completo (um TSV é guardado já convertido para JSON, com todas as seções), então campos novos que o Analyzer venha a adicionar não se perdem.
 
-> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Dashboard com gráficos, Relatórios, relatórios por item e por inimigo, página Bosses (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
+> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Dashboard com gráficos, Relatórios, relatórios por item e por inimigo, página Bosses (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), recompensas do chat ("Você recebeu:") somadas às sessões, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
 
 ## Baixar
 
@@ -142,18 +142,41 @@ Cada aba de Bosses tem:
 - **Resumo**: cards com sessões, kills, tempo total e tempo por kill, profit e profit por kill, Profit/h (total ÷ tempo e média das sessões), supplies e experience por kill, Damage dealt/s e Damage taken/s; tabelas de bosses derrotados, drops mais valiosos e **dano por elemento** (causado e recebido, da seção `Damage` do JSON); e gráficos por sessão (Profit, Profit/h, Duração e Damage dealt/s) a partir de 2 sessões.
 - **Sessões**: a mesma lista da página Hunts (pesquisa, detalhes, comparação, exclusão, exportação), só com as sessões daquele tipo de boss.
 
-O **Dashboard** e a página **Hunts** mostram só Hunts. **Relatórios**, **Itens** e **Inimigos** têm um seletor no topo (Hunts, Todos os bosses, um tipo de boss ou Hunts e bosses), que começa em Hunts para os bosses não misturarem as médias.
+A página **Hunts** mostra só Hunts. O **Dashboard** tem um seletor de categoria que começa em **Hunts e bosses**, para o dinheiro dos bosses entrar na visão geral, e um **Resumo por categoria** com cada tipo separado. **Relatórios**, **Itens** e **Inimigos** têm o mesmo seletor no topo (Hunts, Todos os bosses, um tipo de boss ou Hunts e bosses), que começa em Hunts para os bosses não misturarem as médias.
+
+## Recompensas do chat
+
+Algumas recompensas (bosses, Secret Lab, Subject 14, Tentacruel Chosen…) vêm numa sacola aberta depois: os itens aparecem só no chat e **não entram no JSON** do Analyzer. Para somá-los à sessão:
+
+1. Abra os detalhes da sessão e clique em **Recompensas do chat…**.
+2. Cole as mensagens do chat, uma por linha (linhas com horário ou outras falas são ignoradas):
+
+   ```text
+   Você recebeu: 15 Echo Shards, 2 Mystic Stars, 84 hundred dollars, 4 Heart Stones.
+   Você recebeu: 1 giant fang, 1 Water Stone, 2 Shiny Tentacruel tentacles.
+   ```
+
+3. Confira a prévia e clique em **Adicionar à sessão**.
+
+Na prévia:
+
+- O nome do chat é aproximado do item já conhecido no banco, sem diferenciar maiúsculas e tirando o plural: `Echo Shards` → `Echo Shard`, `hundred dollars` → `one hundred dollars`. Nomes nunca vistos ficam em destaque, e plurais desconhecidos vão para o singular (`big poison bottles` → `big poison bottle`). **Dê duplo clique no nome para corrigir.**
+- Um item repetido em várias mensagens vira uma linha só, somada.
+- O preço é o personalizado (página **Preços**) ou o do Analyzer na Hunt mais recente com o item. Itens sem preço entram com valor 0 até você definir um preço, que recalcula a sessão normalmente.
+- Colar de novo uma mensagem já adicionada à sessão gera um aviso (somaria os itens duas vezes).
+
+Os itens viram drops da sessão com **Origem: Chat** na aba *Drops*, e **Raw gains** e **Profit** (e as taxas por hora) sobem com o valor deles. Eles entram em Relatórios, Itens, filtros e na página Preços como qualquer drop. O JSON original não é alterado. **Remover do chat** tira todos os drops vindos do chat e volta os totais.
 
 ## Funcionalidades
 
 - **Filtros** (no topo do Dashboard, Hunts, Bosses e Relatórios): um único filtro vale para todas essas páginas. Veja [Filtros](#filtros).
-- **Dashboard** (só Hunts; bosses ficam na página [Bosses](#bosses)): cards com Hunts analisadas, tempo total, kills, profit, Profit/h médio, Kills/h médio, supplies e raw gains, e 8 gráficos por Hunt em ordem cronológica: Profit/h, Kills/h, Profit, Supplies/h, Damage dealt/s, Damage taken/s, Kills e Duração. Passe o mouse para ver o valor; clique em uma barra para abrir a Hunt. Os gráficos aparecem a partir de 2 Hunts, e com mais de 60 Hunts viram linha.
+- **Dashboard**: seletor de categoria (começa em Hunts e bosses; também Hunts, Todos os bosses ou um tipo de boss); cards com sessões analisadas, tempo total, kills, profit, Profit/h médio, Kills/h médio, supplies e raw gains; **Resumo por categoria**, com profit, sessões, kills, tempo e Profit/h de Hunts, Rifts, Energia Vermelha, Energia Azul e Terrors (com os filtros, independente do seletor); e 8 gráficos por sessão em ordem cronológica: Profit/h, Kills/h, Profit, Supplies/h, Damage dealt/s, Damage taken/s, Kills e Duração. Passe o mouse para ver o valor; clique em uma barra para abrir a sessão. Os gráficos aparecem a partir de 2 sessões, e com mais de 60 viram linha. O resumo detalhado de cada boss fica na página [Bosses](#bosses).
   O **Profit/h médio** (média simples dos Profit/h de cada Hunt) é exibido separado do **Profit total ÷ tempo total** (ponderado pela duração).
 - **Hunts**: tabela ordenável por qualquer coluna, pesquisa rápida, seleção múltipla, detalhes, **comparação**, exclusão (`Del`), exportação e atualização (`F5`).
 - **Comparação**: selecione 2 ou mais Hunts (`Ctrl`+clique ou `Shift`+clique) e clique em **Comparar**. As métricas ficam nas linhas e as Hunts nas colunas, lado a lado, em ordem cronológica e sem ranking. Pode ser exportada.
 - **Itens** e **Inimigos**: escolha um drop, supply ou inimigo para ver quantidade total, valor total, presença (em quantas Hunts apareceu), média por Hunt e por hora, valor médio, maior e menor quantidade, gráfico por Hunt e a lista das Hunts em que apareceu. As médias consideram as Hunts em que o item apareceu; no gráfico, as Hunts em que ele não apareceu ficam como barras vazias.
 - **Relatórios**: tabela de métricas (duração, kills, profit, supplies, raw gains, experience, damage dealt/taken) com total, média por Hunt, mínimo, máximo, **média das taxas** e **total ÷ tempo total**, mais rankings (top 25) de drops por valor, supplies por custo e inimigos por quantidade.
-- **Detalhes da Hunt**: abas *Resumo*, *Enemies*, *Drops* (com valor total e quantidade), *Supplies* (com custo total), *Gráficos* (inimigos, drops e supplies em barras ordenadas) e *JSON Original* (formatado, somente leitura, com botão de cópia). Várias Hunts podem ficar abertas ao mesmo tempo.
+- **Detalhes da Hunt**: abas *Resumo*, *Enemies*, *Drops* (com valor total, quantidade e origem: Analyzer ou [chat](#recompensas-do-chat)), *Supplies* (com custo total), *Gráficos* (inimigos, drops e supplies em barras ordenadas) e *JSON Original* (formatado, somente leitura, com botão de cópia). Várias Hunts podem ficar abertas ao mesmo tempo.
 - **Configurações**: tema claro ou escuro, formato de números, banco de dados em uso e backups. Veja [Configurações e backup](#configurações-e-backup).
 
 ## Filtros
@@ -232,7 +255,7 @@ pokexgames-hunt-analyzer/
 │   ├── logging_setup.py         # Log em arquivo e aviso de erros inesperados
 │   ├── database/
 │   │   ├── database.py          # Engine, sessões, criação do esquema
-│   │   ├── models.py            # HuntSession, EnemyDefeated, Drop, Supply
+│   │   ├── models.py            # HuntSession, EnemyDefeated, Drop, Supply, ItemPrice, ChatReward
 │   │   ├── migrations.py        # Versões do esquema e migrações
 │   │   ├── query_filters.py     # Tradução de HuntFilter em condições SQL
 │   │   └── repositories.py      # TODAS as consultas SQL ficam aqui
@@ -240,6 +263,7 @@ pokexgames-hunt-analyzer/
 │   │   ├── json_importer.py     # Leitura, validação e extração do JSON (sem banco)
 │   │   ├── hunt_service.py      # Importação (arquivo ou texto colado), duplicidade, consulta, exclusão
 │   │   ├── json_files.py        # Salva JSON colado como arquivo (nome sugerido, sem sobrescrever)
+│   │   ├── chat_rewards.py      # Lê "Você recebeu: ..." do chat e aproxima os nomes dos itens
 │   │   ├── categories.py        # Categorias: Hunt, Rift, Energia Vermelha/Azul, Terror
 │   │   ├── filters.py           # HuntFilter e condições (sem SQL, sem interface)
 │   │   ├── advanced_search.py   # Pesquisa avançada em texto → condições do filtro
@@ -294,10 +318,11 @@ $env:PXG_HUNTS_DB = "C:\caminho\outro.db"; python main.py
 |---|---|---|
 | `hunt_sessions` | Métricas da seção `Session`, `category` (hunt, rift, boss_red, boss_blue, terror), `raw_json` (texto original), `content_hash`, `source_file`, `created_at` | `session_id`, `player`, `start_datetime`, `category`, `content_hash`, (`session_id`, `player`, `start_datetime`) |
 | `enemies_defeated` | `enemy`, `count`, `player`, `rare`, `ignored` | `hunt_id`, `enemy` |
-| `drops` | `item`, `count`, `unit_price`, `total_price`, `player`, `ignored` | `hunt_id`, `item` |
-| `supplies` | mesmas colunas de `drops` | `hunt_id`, `item` |
+| `drops` | `item`, `count`, `unit_price`, `total_price`, `original_unit_price`, `original_total_price`, `player`, `ignored`, `chat_reward_id` (drops vindos do chat) | `hunt_id`, `item`, `chat_reward_id` |
+| `supplies` | mesmas colunas de `drops`, sem `chat_reward_id` | `hunt_id`, `item` |
+| `chat_rewards` | `hunt_id`, `text` (mensagens "Você recebeu:" coladas), `created_at` | `hunt_id` |
 
-As tabelas filhas usam `ON DELETE CASCADE`: excluir uma Hunt remove seus inimigos, drops e supplies.
+As tabelas filhas usam `ON DELETE CASCADE`: excluir uma Hunt remove seus inimigos, drops, supplies e recompensas do chat.
 
 Backups e restauração são feitos em **Configurações** (veja [Configurações e backup](#configurações-e-backup)).
 
@@ -309,7 +334,7 @@ Rodar todos os testes (incluindo o teste de fumaça da interface, que roda sem a
 python -m unittest discover -s tests -t .
 ```
 
-Os testes cobrem: JSON válido, inválido e incompleto; importação por arquivo e por texto colado; duplicidade (conteúdo idêntico, re-exportação, forçar importação); exclusão em cascata; persistência em arquivo; cálculos de duração, dinheiro e estatísticas; cada critério de filtro e suas combinações contra o SQLite real; pesquisa avançada; relatórios por item/inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; importação de pastas e arrastar e soltar; e os fluxos da interface (painel de filtros, Dashboard, Relatórios, comparação, Itens, Inimigos e detalhes).
+Os testes cobrem: JSON válido, inválido e incompleto; importação por arquivo e por texto colado; duplicidade (conteúdo idêntico, re-exportação, forçar importação); exclusão em cascata; persistência em arquivo; cálculos de duração, dinheiro e estatísticas; cada critério de filtro e suas combinações contra o SQLite real; pesquisa avançada; relatórios por item/inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; leitura das mensagens do chat e recompensas somadas e removidas das sessões; importação de pastas e arrastar e soltar; e os fluxos da interface (painel de filtros, Dashboard, Relatórios, comparação, Itens, Inimigos e detalhes).
 
 ### Suportar um novo campo do Analyzer
 

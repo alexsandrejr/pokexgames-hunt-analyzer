@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
+    QPushButton,
     QScrollArea,
     QTabWidget,
     QVBoxLayout,
@@ -19,7 +21,9 @@ from PySide6.QtWidgets import (
 
 from app.database.models import HuntSession
 from app.services.categories import Category
+from app.services.dto import RewardLine
 from app.services.hunt_service import HuntService
+from app.ui.hunts.chat_rewards_dialog import ChatRewardsDialog
 from app.ui.hunts.detail_tabs import ChartsTab, DropsTab, EnemiesTab, JsonTab, SuppliesTab
 from app.ui.icons import icon
 from app.ui.widgets.cards import ResponsiveGrid, StatCard
@@ -32,6 +36,8 @@ from app.utils.formatters import (
 )
 
 Field = tuple[str, str]
+
+DROPS_TAB = 2  # índice da aba Drops, mostrada depois de somar recompensas do chat
 
 
 class FieldGroup(QFrame):
@@ -94,8 +100,17 @@ def summary_groups(hunt: HuntSession) -> list[tuple[str, list[Field]]]:
             ("Arquivo", format_text(hunt.source_file)),
             ("Importada em", format_datetime(hunt.created_at)),
             ("ID interno", format_text(hunt.id)),
+            *_chat_fields(hunt),
         ]),
     ]
+
+
+def _chat_fields(hunt: HuntSession) -> list[Field]:
+    chat_drops = [drop for drop in hunt.drops if drop.from_chat]
+    if not chat_drops:
+        return []
+    value = sum(drop.total_price or 0 for drop in chat_drops)
+    return [("Drops do chat", f"{format_number(len(chat_drops))} itens · {format_money(value)}")]
 
 
 class SummaryTab(QScrollArea):
@@ -128,11 +143,20 @@ class SummaryTab(QScrollArea):
 
 
 class HuntDetailsDialog(QDialog):
-    """Janela não-modal: várias Hunts podem ficar abertas lado a lado."""
+    """Janela não-modal: várias Hunts podem ficar abertas lado a lado.
 
-    def __init__(self, hunt: HuntSession, parent: QWidget | None = None) -> None:
+    Com o ``service``, permite somar à sessão os itens de mensagens "Você recebeu:"
+    do chat (e removê-los); ``hunt_changed`` avisa as listas para se atualizarem.
+    """
+
+    hunt_changed = Signal(int)  # id da Hunt cujos drops e totais mudaram
+
+    def __init__(self, hunt: HuntSession, parent: QWidget | None = None,
+                 service: HuntService | None = None) -> None:
         super().__init__(parent)
         self.hunt = hunt
+        self._service = service
+        self._chat_dialog: ChatRewardsDialog | None = None
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, True)
         self.setWindowIcon(icon("app"))
@@ -146,25 +170,115 @@ class HuntDetailsDialog(QDialog):
             objectName="PageSubtitle",
         )
 
+        header = QHBoxLayout()
+        titles = QVBoxLayout()
+        titles.setSpacing(4)
+        titles.addWidget(heading)
+        titles.addWidget(subtitle)
+        header.addLayout(titles, 1)
+        if service is not None:
+            self.add_chat_button = QPushButton(icon("paste"), "  Recompensas do chat…")
+            self.add_chat_button.setToolTip(
+                "Somar aos drops os itens de mensagens \"Você recebeu:\" que não vieram "
+                "no JSON (ex.: sacolas de boss)")
+            self.add_chat_button.clicked.connect(self.open_chat_rewards_dialog)
+            self.remove_chat_button = QPushButton(icon("trash"), "  Remover do chat")
+            self.remove_chat_button.setObjectName("DangerButton")
+            self.remove_chat_button.clicked.connect(self.remove_chat_rewards)
+            header.addWidget(self.add_chat_button, 0, Qt.AlignmentFlag.AlignTop)
+            header.addWidget(self.remove_chat_button, 0, Qt.AlignmentFlag.AlignTop)
+
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(False)
+        self._fill_tabs()
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(4)
+        layout.addLayout(header)
+        layout.addSpacing(12)
+        layout.addWidget(self.tabs, 1)
+
+    def _title(self) -> str:
+        return f"{Category.from_value(self.hunt.category).label} {format_text(self.hunt.session_id)}"
+
+    def _fill_tabs(self) -> None:
+        hunt = self.hunt
+        current = self.tabs.currentIndex()
+        while self.tabs.count():
+            page = self.tabs.widget(0)
+            self.tabs.removeTab(0)
+            page.deleteLater()
         self.tabs.addTab(SummaryTab(hunt), "Resumo")
         self.tabs.addTab(EnemiesTab(hunt.enemies), f"Enemies ({len(hunt.enemies)})")
         self.tabs.addTab(DropsTab(hunt.drops), f"Drops ({len(hunt.drops)})")
         self.tabs.addTab(SuppliesTab(hunt.supplies_used), f"Supplies ({len(hunt.supplies_used)})")
         self.tabs.addTab(ChartsTab(hunt.enemies, hunt.drops, hunt.supplies_used), "Gráficos")
         self.tabs.addTab(JsonTab(hunt.raw_json), "JSON Original")
+        self.tabs.setCurrentIndex(max(current, 0))
+        if self._service is not None:
+            self.remove_chat_button.setEnabled(bool(hunt.chat_rewards))
+            self.remove_chat_button.setToolTip(
+                "Tirar desta sessão os drops vindos do chat:\n"
+                + "\n".join(m for reward in hunt.chat_rewards for m in reward.messages)
+                if hunt.chat_rewards else "Nenhuma recompensa do chat nesta sessão.")
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(4)
-        layout.addWidget(heading)
-        layout.addWidget(subtitle)
-        layout.addSpacing(12)
-        layout.addWidget(self.tabs, 1)
+    # ------------------------------------------------------- recompensas do chat
 
-    def _title(self) -> str:
-        return f"{Category.from_value(self.hunt.category).label} {format_text(self.hunt.session_id)}"
+    def open_chat_rewards_dialog(self) -> ChatRewardsDialog:
+        """Abre (sem bloquear) o diálogo de colar mensagens; ao confirmar, grava."""
+        assert self._service is not None
+        dialog = ChatRewardsDialog(self._service, self.hunt.id, self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        # Método ligado em vez de lambda: uma lambda guardaria o diálogo e esta janela
+        # na conexão (ciclo de referências que apaga o objeto C++ duas vezes).
+        dialog.accepted.connect(self._on_chat_dialog_accepted)
+        self._chat_dialog = dialog
+        dialog.open()
+        return dialog
+
+    def _on_chat_dialog_accepted(self) -> None:
+        dialog, self._chat_dialog = self._chat_dialog, None
+        if dialog is not None:
+            self.add_chat_rewards(dialog.text(), dialog.lines())
+
+    def add_chat_rewards(self, text: str, lines: list[RewardLine] | None = None) -> int:
+        assert self._service is not None
+        try:
+            added = self._service.add_chat_rewards(self.hunt.id, text, lines)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Recompensas do chat", str(exc))
+            return 0
+        self._reload()
+        self.tabs.setCurrentIndex(DROPS_TAB)
+        return added
+
+    def remove_chat_rewards(self) -> int:
+        assert self._service is not None
+        if not self.hunt.chat_rewards:
+            return 0
+        answer = QMessageBox.question(
+            self, "Remover recompensas do chat",
+            "Remover desta sessão todos os drops vindos de mensagens do chat?\n\n"
+            "Raw gains e Profit voltam aos valores sem esses itens.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return 0
+        removed = self._service.remove_chat_rewards(self.hunt.id)
+        self._reload()
+        return removed
+
+    def _reload(self) -> None:
+        assert self._service is not None
+        hunt = self._service.get_hunt_details(self.hunt.id)
+        self.hunt_changed.emit(self.hunt.id)
+        if hunt is None:
+            self.close()
+            return
+        self.hunt = hunt
+        self._fill_tabs()
 
 
 def show_hunt_details(service: HuntService, hunt_id: int,
@@ -175,6 +289,6 @@ def show_hunt_details(service: HuntService, hunt_id: int,
         QMessageBox.warning(parent, "Hunt não encontrada",
                             "A Hunt selecionada não existe mais no banco de dados.")
         return None
-    dialog = HuntDetailsDialog(hunt, parent)
+    dialog = HuntDetailsDialog(hunt, parent, service)
     dialog.show()
     return dialog

@@ -16,13 +16,15 @@ SCOPES: tuple[tuple[str, tuple[Category, ...]], ...] = (
 
 
 class CategoryScopeCombo(QComboBox):
-    """Começa em "Hunts", para que os bosses não misturem as médias das Hunts."""
+    """Por padrão começa em "Hunts", para que os bosses não misturem as médias das Hunts."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None,
+                 default: tuple[Category, ...] = (Category.HUNT,)) -> None:
         super().__init__(parent)
         self.setToolTip("Quais sessões entram nas estatísticas desta página")
         for label, _categories in SCOPES:
             self.addItem(label)
+        self.set_categories(default)
 
     def categories(self) -> tuple[Category, ...]:
         # A tupla fica em SCOPES: o QComboBox não guarda tuplas de enums como dado do item.

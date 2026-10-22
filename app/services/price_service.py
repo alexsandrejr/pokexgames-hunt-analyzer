@@ -73,7 +73,14 @@ def reprice_entry(entry: ItemEntry, unit_price: float | None) -> None:
     else:
         entry.unit_price = unit_price
         entry.total_price = int(round(unit_price * entry.count))
-    delta = (entry.total_price or 0) - (old_total or 0)
+    shift_hunt_totals(entry, (entry.total_price or 0) - (old_total or 0))
+
+
+def shift_hunt_totals(entry: ItemEntry, delta: int) -> None:
+    """Ajusta os totais da Hunt da entrada quando o valor dela muda em ``delta``.
+
+    Também usado para somar (ou tirar) drops inteiros, como os do chat.
+    """
     if not delta or entry.ignored:
         return
     hunt = entry.hunt

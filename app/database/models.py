@@ -6,6 +6,8 @@ Hunts comuns das sessões de boss (ver ``app/services/categories.py``). O JSON o
 sempre preservado em ``raw_json`` para que campos futuros do Analyzer não se percam.
 
 ``ItemPrice`` guarda os preços personalizados dos itens (ver ``price_service``).
+``ChatReward`` guarda as mensagens "Você recebeu:" adicionadas a uma sessão; os itens
+delas viram ``Drop`` ligados à mensagem (ver ``chat_rewards``).
 """
 
 from __future__ import annotations
@@ -78,6 +80,10 @@ class HuntSession(Base):
     supplies_used: Mapped[list[Supply]] = relationship(
         back_populates="hunt", cascade="all, delete-orphan", passive_deletes=True
     )
+    chat_rewards: Mapped[list[ChatReward]] = relationship(
+        back_populates="hunt", cascade="all, delete-orphan", passive_deletes=True,
+        order_by="ChatReward.id",
+    )
 
     def __repr__(self) -> str:
         return (
@@ -124,7 +130,16 @@ class Drop(ItemEntryMixin, Base):
     hunt_id: Mapped[int] = mapped_column(
         ForeignKey("hunt_sessions.id", ondelete="CASCADE"), index=True
     )
+    # Preenchido nos drops vindos de uma mensagem do chat (fora do JSON do Analyzer).
+    chat_reward_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chat_rewards.id", ondelete="CASCADE"), index=True
+    )
     hunt: Mapped[HuntSession] = relationship(back_populates="drops")
+    chat_reward: Mapped[ChatReward | None] = relationship(back_populates="drops")
+
+    @property
+    def from_chat(self) -> bool:
+        return self.chat_reward_id is not None
 
 
 class Supply(ItemEntryMixin, Base):
@@ -147,3 +162,24 @@ class ItemPrice(Base):
     item: Mapped[str] = mapped_column(String(200))  # nome como exibido
     unit_price: Mapped[float]
     updated_at: Mapped[datetime] = mapped_column(default=datetime.now, onupdate=datetime.now)
+
+
+class ChatReward(Base):
+    """Mensagens "Você recebeu:" coladas para uma sessão (itens que o JSON não traz)."""
+
+    __tablename__ = "chat_rewards"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hunt_id: Mapped[int] = mapped_column(
+        ForeignKey("hunt_sessions.id", ondelete="CASCADE"), index=True
+    )
+    # Uma mensagem por linha, como foram coladas (sem espaços repetidos).
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+
+    hunt: Mapped[HuntSession] = relationship(back_populates="chat_rewards")
+    drops: Mapped[list[Drop]] = relationship(back_populates="chat_reward")
+
+    @property
+    def messages(self) -> list[str]:
+        return [line for line in self.text.splitlines() if line.strip()]

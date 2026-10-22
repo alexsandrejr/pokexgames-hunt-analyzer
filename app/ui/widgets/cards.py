@@ -33,6 +33,9 @@ class StatCard(QFrame):
         layout.addWidget(self._hint)
         layout.addStretch(1)
 
+    def set_title(self, title: str) -> None:
+        self._title.setText(title)
+
     def set_value(self, value: str, hint: str | None = None) -> None:
         self._value.setText(value)
         if hint is not None:
@@ -75,7 +78,9 @@ class ResponsiveGrid(QWidget):
         # Isso acontece durante um resizeEvent (no meio de um cálculo de layout), quando
         # o aviso imediato se perde; por isso ele é reenviado ao fim do cálculo atual.
         self.updateGeometry()
-        QTimer.singleShot(0, self._invalidate_ancestors)
+        # Com ``self`` como contexto, o aviso é cancelado se o grid for apagado antes
+        # (ex.: abas recriadas nos detalhes da Hunt).
+        QTimer.singleShot(0, self, self._invalidate_ancestors)
 
     def _invalidate_ancestors(self) -> None:
         widget: QWidget | None = self

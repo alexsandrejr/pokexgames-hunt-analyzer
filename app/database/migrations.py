@@ -53,6 +53,12 @@ MIGRATIONS: tuple[Migration, ...] = (
     ), columns=(
         ("hunt_sessions", "category", "VARCHAR(20) NOT NULL DEFAULT 'hunt'"),
     )),
+    Migration(5, 'Recompensas do chat ("Você recebeu:") como drops da sessão', (
+        "CREATE INDEX IF NOT EXISTS ix_drops_chat_reward_id ON drops (chat_reward_id)",
+    ), columns=(
+        ("drops", "chat_reward_id",
+         "INTEGER REFERENCES chat_rewards (id) ON DELETE CASCADE"),
+    )),
 )
 
 LATEST_VERSION = MIGRATIONS[-1].version

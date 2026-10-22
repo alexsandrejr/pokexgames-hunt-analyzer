@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
 from app.database.database import Database  # noqa: E402
+from app.database.migrations import LATEST_VERSION  # noqa: E402
 from app.services.categories import (  # noqa: E402
     BOSS_CATEGORIES,
     Category,
@@ -24,6 +25,7 @@ from app.services.hunt_service import IMPORTED_MESSAGE, HuntService  # noqa: E40
 from app.services.statistics_service import StatisticsService, damage_by_element  # noqa: E402
 from app.ui.main_window import MainWindow  # noqa: E402
 from app.ui.theme import apply_theme  # noqa: E402
+from app.utils.formatters import format_money  # noqa: E402
 from tests.helpers import FIXTURES_DIR, SAMPLE_HUNT_PATH, memory_database  # noqa: E402
 
 SAMPLE_BOSS_PATH = FIXTURES_DIR / "sample_boss.json"
@@ -177,7 +179,8 @@ class CategoryMigrationTests(unittest.TestCase):
             old.dispose()
 
             database = Database.from_path(path)
-            self.assertEqual([m.version for m in database.create_schema()], [4])
+            self.assertEqual([m.version for m in database.create_schema()],
+                             list(range(4, LATEST_VERSION + 1)))
             service = HuntService(database)
             [summary] = service.list_hunts()
             self.assertEqual(summary.category, "hunt")
@@ -211,11 +214,42 @@ class BossesUiTests(unittest.TestCase):
         self.database.dispose()
         self._tmp.cleanup()
 
-    def test_hunts_page_and_dashboard_ignore_bosses(self) -> None:
+    def test_hunts_page_ignores_bosses(self) -> None:
         self.window.show_page("hunts")
         self.assertEqual(self.window.hunts_page._table.visible_row_count(), 1)
+
+    def test_dashboard_includes_bosses(self) -> None:
         self.window.show_page("dashboard")
-        self.assertEqual(self.window.dashboard_page._cards["hunts"]._value.text(), "1")
+        page = self.window.dashboard_page
+        sessions = self.service.list_hunts()
+        hunt_profit = next(s.profit for s in sessions if s.category == Category.HUNT.value)
+        terror_profit = sum(s.profit for s in sessions if s.category == Category.TERROR.value)
+
+        # Começa em "Hunts e bosses": o dinheiro dos bosses entra nos totais e gráficos.
+        self.assertEqual(page.scope.categories(), ())
+        self.assertEqual(page._cards["hunts"]._value.text(), "3")
+        self.assertEqual(page._cards["hunts"]._title.text(), "Sessões analisadas")
+        self.assertEqual(page._cards["profit"]._value.text(),
+                         format_money(hunt_profit + terror_profit))
+        _spec, chart = page.charts[0]
+        self.assertEqual(len(chart._points), 3)
+        self.assertTrue(chart._points[-1].title.startswith("Terror "))
+
+        cards = page.category_cards
+        self.assertEqual(cards[Category.HUNT]._value.text(), format_money(hunt_profit))
+        self.assertEqual(cards[Category.TERROR]._value.text(), format_money(terror_profit))
+        self.assertIn("2 sessão(ões)", cards[Category.TERROR]._hint.text())
+        self.assertEqual(cards[Category.RIFT]._value.text(), "—")
+
+        page.scope.set_categories((Category.HUNT,))
+        self.assertEqual(page._cards["hunts"]._value.text(), "1")
+        self.assertEqual(page._cards["hunts"]._title.text(), "Hunts analisadas")
+        self.assertEqual(page._cards["profit"]._value.text(), format_money(hunt_profit))
+        # O resumo por categoria não depende do seletor.
+        self.assertEqual(cards[Category.TERROR]._value.text(), format_money(terror_profit))
+
+        page.scope.set_categories((Category.TERROR,))
+        self.assertEqual(page._cards["hunts"]._value.text(), "2")
 
     def test_bosses_page_tabs_and_summary(self) -> None:
         self.window.show_page("bosses")

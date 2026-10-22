@@ -180,7 +180,9 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Exportado: {path}", 10000)
 
     def open_hunt(self, hunt_id: int) -> None:
-        show_hunt_details(self._hunt_service, hunt_id, self)
+        dialog = show_hunt_details(self._hunt_service, hunt_id, self)
+        if dialog is not None:
+            dialog.hunt_changed.connect(lambda _id: self.refresh_current_page())
 
     def refresh_current_page(self) -> None:
         page = self.stack.currentWidget()

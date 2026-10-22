@@ -82,7 +82,7 @@ class HuntRepository:
         return hunt
 
     def get_with_details(self, hunt_id: int) -> HuntSession | None:
-        """Carrega a Hunt com inimigos, drops e supplies (para uso fora da sessão)."""
+        """Carrega a Hunt com inimigos, drops, supplies e mensagens do chat."""
         stmt = (
             select(HuntSession)
             .where(HuntSession.id == hunt_id)
@@ -90,6 +90,7 @@ class HuntRepository:
                 selectinload(HuntSession.enemies),
                 selectinload(HuntSession.drops),
                 selectinload(HuntSession.supplies_used),
+                selectinload(HuntSession.chat_rewards),
             )
         )
         return self.session.scalars(stmt).one_or_none()
@@ -314,6 +315,30 @@ class PriceRepository:
                     .options(selectinload(model.hunt)))
             entries.extend(self.session.scalars(stmt))
         return entries
+
+    def latest_analyzer_prices(self, keys: Iterable[str]) -> dict[str, float]:
+        """``{nome em minúsculas: preço do Analyzer na Hunt mais recente}``.
+
+        O preço visto em drops tem prioridade sobre o de supplies.
+        """
+        keys = set(keys)
+        prices: dict[str, float] = {}
+        if not keys:
+            return prices
+        for model in (Supply, Drop):  # drops por último: sobrescrevem
+            name = func.lower(model.item)
+            stmt = (
+                select(name, model.original_unit_price)
+                .join(HuntSession, HuntSession.id == model.hunt_id)
+                .where(name.in_(keys), model.original_unit_price.is_not(None))
+                .order_by(HuntSession.start_datetime.is_(None), HuntSession.start_datetime,
+                          HuntSession.id)
+            )
+            found: dict[str, float] = {}
+            for key, price in self.session.execute(stmt):
+                found[key] = price  # a mais recente vence
+            prices.update(found)
+        return prices
 
     def item_usage(self, model: type[Drop] | type[Supply]) -> Sequence[Any]:
         """Uma linha por entrada: ``item``, ``count``, ``hunt_id``, ``original_unit_price``.

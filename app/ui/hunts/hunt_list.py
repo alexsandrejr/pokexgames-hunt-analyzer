@@ -252,6 +252,8 @@ class HuntListView(QWidget):
         dialog = show_hunt_details(self._service, hunt_id, self.window())
         if dialog is None:
             self.refresh()
+        else:  # recompensas do chat mudam drops e Profit
+            dialog.hunt_changed.connect(lambda _id: self.refresh())
         return dialog
 
     def compare_selected(self) -> ComparisonDialog | None:

@@ -83,3 +83,28 @@ class RankedEntry:
     @property
     def average_per_hunt(self) -> float | None:
         return self.quantity / self.hunt_count if self.hunt_count else None
+
+
+@dataclass(frozen=True)
+class RewardLine:
+    """Item de uma mensagem do chat, com o nome no banco e o preço que vai valer."""
+
+    chat_name: str  # como veio no chat
+    item: str  # nome gravado no drop
+    count: int
+    unit_price: float | None  # preço personalizado ou o do Analyzer; None se desconhecido
+    known: bool  # o nome já existe em drops, supplies ou preços
+
+    @property
+    def total_price(self) -> int | None:
+        return None if self.unit_price is None else int(round(self.unit_price * self.count))
+
+
+@dataclass
+class ChatRewardPreview:
+    """Resultado da leitura das mensagens "Você recebeu:" antes de gravar."""
+
+    lines: list[RewardLine] = field(default_factory=list)
+    messages: list[str] = field(default_factory=list)
+    invalid: list[str] = field(default_factory=list)  # trechos sem quantidade
+    repeated: list[str] = field(default_factory=list)  # já adicionadas a esta sessão

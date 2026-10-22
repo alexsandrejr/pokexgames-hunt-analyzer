@@ -7,20 +7,34 @@ do Analyzer não a informa, ela é decidida nesta ordem:
 2. a categoria pedida na importação (a aba de Bosses aberta);
 3. os inimigos da sessão, se todos já apareceram só numa mesma categoria de boss;
 4. Hunt.
+
+Itens que só aparecem no chat ("Você recebeu: ..."), como recompensas de boss
+abertas numa sacola, podem ser somados depois a uma sessão como drops (ver
+``add_chat_rewards``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import asdict
+from collections.abc import Iterable, Sequence
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from app.database.database import Database
-from app.database.models import Drop, EnemyDefeated, HuntSession, Supply
+from app.database.models import ChatReward, Drop, EnemyDefeated, HuntSession, Supply
 from app.database.repositories import HuntRepository, PriceRepository
 from app.services.categories import Category, category_dir, category_from_folder
-from app.services.dto import FilterOptions, HuntSummary, ImportResult, ImportStatus
+from app.services.chat_rewards import parse_chat_rewards, resolve_item_name
+from app.services.dto import (
+    ChatRewardPreview,
+    FilterOptions,
+    HuntSummary,
+    ImportResult,
+    ImportStatus,
+    RewardLine,
+)
 from app.services.filters import HuntFilter, ItemSource
 from app.services.json_files import suggested_filename, write_new_json_file
 from app.services.json_importer import (
@@ -30,7 +44,7 @@ from app.services.json_importer import (
     parse_analyzer_text,
     read_analyzer_file,
 )
-from app.services.price_service import apply_custom_prices
+from app.services.price_service import apply_custom_prices, item_key, shift_hunt_totals
 
 DUPLICATE_MESSAGE = "Esta Hunt já foi importada."
 IMPORTED_MESSAGE = "Hunt importada com sucesso."
@@ -188,6 +202,101 @@ class HuntService:
         with self.database.session() as session:
             return HuntRepository(session).set_category(hunt_ids, category.value)
 
+    # ------------------------------------------------------- recompensas do chat
+
+    def preview_chat_rewards(self, hunt_id: int | None, text: str) -> ChatRewardPreview:
+        """Lê as mensagens "Você recebeu:" sem gravar: nomes no banco, preços e repetições.
+
+        Um item que aparece em mais de uma mensagem vira uma linha só, somada.
+        """
+        parsed = parse_chat_rewards(text)
+        preview = ChatRewardPreview(messages=parsed.messages, invalid=parsed.invalid)
+        with self.database.session() as session:
+            known = _known_item_names(session)
+            merged: dict[str, RewardLine] = {}
+            for entry in parsed.items:
+                name, is_known = resolve_item_name(entry.name, entry.count, known)
+                key = item_key(name)
+                line = merged.get(key)
+                merged[key] = (
+                    RewardLine(chat_name=entry.name, item=name, count=entry.count,
+                               unit_price=None, known=is_known)
+                    if line is None else replace(line, count=line.count + entry.count))
+            prices = _reward_prices(session, merged)
+            preview.lines = [replace(line, unit_price=prices.get(key))
+                             for key, line in merged.items()]
+            hunt = session.get(HuntSession, hunt_id) if hunt_id is not None else None
+            if hunt is not None:
+                added = {message for reward in hunt.chat_rewards for message in reward.messages}
+                preview.repeated = [message for message in parsed.messages if message in added]
+        return preview
+
+    def quote_reward_item(self, chat_name: str, item: str, count: int) -> RewardLine:
+        """Linha com o nome escolhido pelo usuário (e o preço desse nome)."""
+        item = " ".join(item.split())
+        key = item_key(item)
+        with self.database.session() as session:
+            known = key in _known_item_names(session)
+            price = _reward_prices(session, [key]).get(key)
+        return RewardLine(chat_name=chat_name, item=item, count=count, unit_price=price,
+                          known=known)
+
+    def add_chat_rewards(self, hunt_id: int, text: str,
+                         lines: Sequence[RewardLine] | None = None) -> int:
+        """Soma os itens das mensagens à sessão como drops. Retorna quantos drops criou.
+
+        ``lines`` são as linhas da prévia, com os nomes que o usuário corrigiu; sem
+        elas, os nomes vêm de ``preview_chat_rewards``. O preço é o de agora: o
+        personalizado do item ou o do Analyzer na Hunt mais recente (que volta a
+        valer se o personalizado for removido). Raw gains e Profit sobem junto.
+        """
+        messages = parse_chat_rewards(text).messages
+        if lines is None:
+            lines = self.preview_chat_rewards(hunt_id, text).lines
+        counts: dict[str, tuple[str, int]] = {}
+        for line in lines:
+            name = " ".join(line.item.split())
+            if name and line.count > 0:
+                key = item_key(name)
+                first_name, count = counts.get(key, (name, 0))
+                counts[key] = (first_name, count + line.count)
+        if not messages or not counts:
+            raise ValueError('Nenhum item de mensagem "Você recebeu:" para adicionar.')
+
+        with self.database.session() as session:
+            hunt = HuntRepository(session).get_with_details(hunt_id)
+            if hunt is None:
+                raise ValueError("A sessão não existe mais no banco de dados.")
+            repository = PriceRepository(session)
+            analyzer = repository.latest_analyzer_prices(counts)
+            custom = repository.price_map()
+            reward = ChatReward(text="\n".join(messages))
+            hunt.chat_rewards.append(reward)
+            for key, (name, count) in counts.items():
+                original = analyzer.get(key)
+                price = custom.get(key, original)
+                drop = Drop(item=name, count=count, player=hunt.player,
+                            unit_price=price, total_price=_total(price, count),
+                            original_unit_price=original,
+                            original_total_price=_total(original, count))
+                drop.chat_reward = reward
+                hunt.drops.append(drop)
+                shift_hunt_totals(drop, drop.total_price or 0)
+            return len(counts)
+
+    def remove_chat_rewards(self, hunt_id: int) -> int:
+        """Tira da sessão todos os drops vindos do chat. Retorna quantos removeu."""
+        with self.database.session() as session:
+            hunt = HuntRepository(session).get_with_details(hunt_id)
+            if hunt is None:
+                return 0
+            chat_drops = [drop for drop in hunt.drops if drop.from_chat]
+            for drop in chat_drops:
+                shift_hunt_totals(drop, -(drop.total_price or 0))
+                hunt.drops.remove(drop)
+            hunt.chat_rewards.clear()
+            return len(chat_drops)
+
 
 def _error_result(source: str, error: AnalyzerImportError) -> ImportResult:
     return ImportResult(
@@ -215,6 +324,28 @@ def _known_boss_category(repository: HuntRepository, parsed: ParsedHunt) -> Cate
         return None
     category = Category.from_value(categories.pop())
     return category if category.is_boss else None
+
+
+def _known_item_names(session: Session) -> dict[str, str]:
+    """``{nome em minúsculas: nome exibido}`` de drops, supplies e preços personalizados."""
+    names = {price.key: price.item for price in PriceRepository(session).all()}
+    repository = HuntRepository(session)
+    for source in (ItemSource.SUPPLIES, ItemSource.DROPS):  # drops por último: prioridade
+        names.update((item_key(name), name) for name in repository.distinct_names(source.value))
+    return names
+
+
+def _reward_prices(session: Session, keys: Iterable[str]) -> dict[str, float]:
+    """Preço que um drop do chat recebe: o personalizado ou o último do Analyzer."""
+    keys = set(keys)
+    repository = PriceRepository(session)
+    prices = repository.latest_analyzer_prices(keys)
+    prices.update({key: price for key, price in repository.price_map().items() if key in keys})
+    return prices
+
+
+def _total(unit_price: float | None, count: int) -> int | None:
+    return None if unit_price is None else int(round(unit_price * count))
 
 
 def _build_model(parsed: ParsedHunt) -> HuntSession:

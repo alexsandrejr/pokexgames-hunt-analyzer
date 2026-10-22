@@ -75,7 +75,8 @@ class MigrationTests(unittest.TestCase):
         old.dispose()
 
         database = self.open()
-        self.assertEqual([m.version for m in database.create_schema()], [3, 4])
+        self.assertEqual([m.version for m in database.create_schema()],
+                         list(range(3, LATEST_VERSION + 1)))
         with database.engine.connect() as connection:
             rows = connection.execute(text(
                 "SELECT unit_price, original_unit_price, total_price, original_total_price "

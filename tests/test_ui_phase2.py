@@ -128,7 +128,7 @@ class Phase2UiTests(unittest.TestCase):
         self.window.filters.set_filter(HuntFilter(player="Outro"))
         self.assertFalse(page._charts_section.isVisibleTo(self.window))
         self.assertEqual(page._cards["hunts"]._value.text(), "1")
-        self.assertIn("2 Hunts", page._empty_hint.text())
+        self.assertIn("2 sessões", page._empty_hint.text())
 
     def test_chart_click_opens_hunt(self) -> None:
         opened: list[int] = []
