@@ -368,7 +368,7 @@ class FilterPanel(QFrame):
         self._badge.setVisible(bool(parts))
         self._clear_button.setVisible(bool(parts))
         self._summary.set_full_text("  ·  ".join(parts) if parts
-                                    else "Nenhum filtro ativo: exibindo todas as Hunts")
+                                    else "Nenhum filtro ativo")
         self._summary.setToolTip("\n".join(parts))
 
     def mousePressEvent(self, event) -> None:  # clicar no cabeçalho alterna o painel

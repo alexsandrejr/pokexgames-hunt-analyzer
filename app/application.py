@@ -27,7 +27,7 @@ from app.services.price_service import PriceService
 from app.services.settings_service import AppSettings, SettingsStore
 from app.services.statistics_service import StatisticsService
 from app.ui.icons import icon
-from app.ui.main_window import NAV_ITEMS, MainWindow
+from app.ui.main_window import MainWindow
 from app.ui.theme import apply_theme, use_palette
 from app.utils.constants import APP_NAME, APP_VERSION, ORGANIZATION_NAME
 from app.utils.formatters import set_number_format
@@ -95,8 +95,8 @@ def _schedule_smoke_test(window: MainWindow) -> None:
 
     def visit() -> None:
         try:
-            for item in NAV_ITEMS:
-                window.show_page(item.key)
+            for key in window.pages:
+                window.show_page(key)
         except Exception:  # noqa: BLE001
             logger.exception("Smoke test falhou")
             QApplication.exit(1)

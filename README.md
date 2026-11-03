@@ -4,7 +4,7 @@ Aplicação desktop para **armazenar, organizar e analisar** as sessões de Hunt
 
 Cada arquivo importado vira um **registro histórico permanente** no banco SQLite local, com seus inimigos derrotados, drops e supplies em tabelas relacionadas. O JSON original é sempre preservado por completo (um TSV é guardado já convertido para JSON, com todas as seções), então campos novos que o Analyzer venha a adicionar não se perdem.
 
-> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Dashboard com gráficos, Relatórios, relatórios por item e por inimigo, página Bosses (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), recompensas do chat ("Você recebeu:") somadas às sessões, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), página DPS (ranking de pokémons por boss com tempo limite, calculado por Efetividade, Dummy ou Dano real), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
+> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Início com gráficos, Relatórios, relatórios por item e por inimigo, sessões por tipo de boss (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), recompensas do chat ("Você recebeu:") somadas às sessões, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), página DPS (ranking de pokémons por boss com tempo limite, calculado por Efetividade, Dummy ou Dano real), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
 
 ## Baixar
 
@@ -79,23 +79,37 @@ Erros inesperados são gravados em `logs/app.log` e mostrados numa mensagem com 
 
 > O `.exe` não tem assinatura digital, então o Windows SmartScreen avisa na primeira execução ("Mais informações" → "Executar assim mesmo"). O `LEIA-ME.txt` explica isso aos colegas.
 
+## Navegação
+
+A barra lateral tem as quatro seções de trabalho, as Configurações no rodapé e o botão **Importar**, sempre visível. O número da versão, no rodapé, abre a janela Sobre.
+
+| Seção | Conteúdo |
+|---|---|
+| **Início** | Visão geral: cards, resumo por categoria e gráficos |
+| **Sessões** | **Todas**, **Hunts**, **Rifts**, **Energia Vermelha**, **Energia Azul** e **Terrors**, escolhidos nos botões do topo, com a quantidade de sessões |
+| **Análise** | **Relatórios**, **Itens**, **Inimigos** e **Preços**, escolhidos nos botões do topo |
+| **DPS** | Abas **Ranking** e **Pokémons** |
+| **Configurações** | Tema, formato de números, banco de dados e backups |
+
+Ao voltar a Sessões ou Análise, abre a última página usada ali. Nas listas de sessões, **Detalhes**, **Comparar**, **Mover** e **Excluir** só aparecem quando há uma seleção que permite usá-los. Atalhos: `Ctrl+I` importa arquivos, `Ctrl+Shift+I` importa uma pasta, `Ctrl+Shift+V` cola texto, `F5` atualiza a página e `Ctrl+Q` fecha o app.
+
 ## Como importar uma Hunt
 
 1. No jogo, exporte a sessão pelo Analyzer (é gerado um arquivo `.json`).
-2. No aplicativo, use **Hunts → Importar JSON…** (`Ctrl+I`) ou o botão **Importar JSON** da página Hunts.
+2. No aplicativo, clique em **Importar → Arquivos JSON/TSV…** (`Ctrl+I`), na barra lateral.
 3. Selecione um ou **vários** arquivos. A pasta `imports/` do projeto é aberta por padrão e contém um exemplo (`exemplo_hunt_1080.json`).
-4. As Hunts importadas aparecem selecionadas na página Hunts. Dê **duplo clique** (ou `Enter`) para abrir os detalhes.
+4. As Hunts importadas aparecem selecionadas em **Sessões → Hunts**. Dê **duplo clique** (ou `Enter`) para abrir os detalhes.
 
 ### Importar vários de uma vez
 
-- **Pasta**: **Hunts → Importar pasta…** (`Ctrl+Shift+I`) ou o botão **Importar pasta** importa todos os `.json` da pasta e das subpastas.
+- **Pasta**: **Importar → Pasta inteira…** (`Ctrl+Shift+I`) importa todos os `.json` da pasta e das subpastas.
 - **Arrastar e soltar**: arraste arquivos `.json` ou pastas inteiras para qualquer ponto da janela.
 
 Na importação de vários arquivos, as Hunts já importadas são **ignoradas sem perguntar**. Com 5 arquivos ou mais aparece uma barra de progresso, que permite cancelar. No fim, um resumo mostra quantas foram importadas, ignoradas por duplicidade e com erro, com o motivo de cada arquivo. Um arquivo único continua perguntando: **Cancelar** ou **Importar mesmo assim**.
 
 ### Colar o JSON (sem arquivo)
 
-Use **Hunts → Colar JSON…** (`Ctrl+Shift+V`) ou o botão **Colar JSON** da página Hunts e cole o texto copiado do Analyzer. O conteúdo é validado enquanto você cola: o diálogo mostra a Hunt reconhecida (ID, player, data, duração e profit) ou o erro, e o botão **Importar** só fica ativo com um JSON válido.
+Use **Importar → Colar texto…** (`Ctrl+Shift+V`) e cole o texto copiado do Analyzer. O conteúdo é validado enquanto você cola: o diálogo mostra a Hunt reconhecida (ID, player, data, duração e profit) ou o erro, e o botão **Importar** só fica ativo com um JSON válido.
 
 Ao importar, o texto também é **salvo como arquivo** em `imports/`, com o nome `hunt_<SessionID>_<AAAA-MM-DD_HH-MM-SS>.json` (ex.: `hunt_1080_2026-09-26_15-24-20.json`). Esse nome fica registrado como arquivo de origem da Hunt.
 
@@ -129,20 +143,20 @@ O JSON do Analyzer não traz o player na seção `Session`. Ele é obtido do cam
 Além das Hunts, o app separa os quatro tipos de boss do PokeXGames: **Rifts**, **Energia Vermelha**, **Energia Azul** e **Terrors**. O JSON exportado pelo Analyzer é o mesmo de uma Hunt, então cada sessão recebe uma **categoria** ao ser importada:
 
 1. **Pasta do arquivo**: arquivos em `imports/rifts/`, `imports/energia_vermelha/`, `imports/energia_azul/` ou `imports/terrors/` entram na categoria da pasta.
-2. **Aba aberta**: importar (arquivo, pasta, arrastar e soltar ou colar) com uma aba da página **Bosses** aberta grava as sessões naquele tipo de boss.
-3. **Boss já conhecido**: se todos os inimigos da sessão já apareceram só em sessões de um mesmo tipo de boss, ela vai para lá sozinha, mesmo importada fora da página Bosses.
+2. **Tipo aberto**: importar (arquivo, pasta, arrastar e soltar ou colar) com um tipo de boss aberto em **Sessões** grava as sessões nele.
+3. **Boss já conhecido**: se todos os inimigos da sessão já apareceram só em sessões de um mesmo tipo de boss, ela vai para lá sozinha, mesmo importada com outra página aberta.
 4. Caso contrário, a sessão é uma **Hunt**.
 
-Errou a categoria? Selecione as sessões e use **Mover** (na página Hunts ou em qualquer aba de Bosses). As sessões antigas continuam como Hunts até serem movidas.
+Errou a categoria? Selecione as sessões e use **Mover**, em qualquer lista da seção Sessões. As sessões antigas continuam como Hunts até serem movidas.
 
 JSONs de boss colados são salvos na subpasta da categoria (ex.: `imports/terrors/hunt_651_2026-10-04_13-04-54.json`), então reimportar a pasta `imports/` mantém cada sessão no lugar certo.
 
-Cada aba de Bosses tem:
+Cada tipo de boss tem:
 
 - **Resumo**: cards com sessões, kills, tempo total e tempo por kill, profit e profit por kill, Profit/h (total ÷ tempo e média das sessões), supplies e experience por kill, Damage dealt/s e Damage taken/s; tabelas de bosses derrotados, drops mais valiosos e **dano por elemento** (causado e recebido, da seção `Damage` do JSON); e gráficos por sessão (Profit, Profit/h, Duração e Damage dealt/s) a partir de 2 sessões.
-- **Sessões**: a mesma lista da página Hunts (pesquisa, detalhes, comparação, exclusão, exportação), só com as sessões daquele tipo de boss.
+- **Lista**: a mesma lista de Hunts (pesquisa, detalhes, comparação, exclusão, exportação), só com as sessões daquele tipo de boss.
 
-A página **Hunts** mostra só Hunts. O **Dashboard** tem um seletor de categoria que começa em **Hunts e bosses**, para o dinheiro dos bosses entrar na visão geral, e um **Resumo por categoria** com cada tipo separado. **Relatórios**, **Itens** e **Inimigos** têm o mesmo seletor no topo (Hunts, Todos os bosses, um tipo de boss ou Hunts e bosses), que começa em Hunts para os bosses não misturarem as médias.
+Em **Sessões**, **Todas** mostra todas as categorias, com uma coluna Categoria, e **Hunts** mostra só Hunts. O **Início** tem um seletor de categoria que começa em **Hunts e bosses**, para o dinheiro dos bosses entrar na visão geral, e um **Resumo por categoria** com cada tipo que tem sessões. **Relatórios**, **Itens** e **Inimigos** têm o mesmo seletor no topo (Hunts, Todos os bosses, um tipo de boss ou Hunts e bosses), que começa em Hunts para os bosses não misturarem as médias.
 
 ## Recompensas do chat
 
@@ -171,9 +185,9 @@ Os itens viram drops da sessão com **Origem: Chat** na aba *Drops*, e **Raw gai
 
 A página **DPS** compara o dano dos pokémons em bosses com tempo limite. Ela não usa as sessões importadas: tudo é cadastrado à mão e fica no mesmo banco, então entra nos backups.
 
-- **Bosses**: cada boss tem nome e tempo limite (o boss **Padrão**, de 7 minutos, já vem criado). O seletor da aba **Ranking** escolhe o boss, e o app lembra o último usado. Em **Bosses → Novo/Editar boss** também ficam os elementos dele (só informativos) e a efetividade de cada ataque contra ele, copiada da Pokédex do jogo; o que não for marcado conta como Normal. **Adicionar** abre a lista para marcar quem pode lutar contra ele, e **Remover** tira o pokémon sem apagar o cadastro.
+- **Bosses**: cada boss tem nome e tempo limite (o boss **Padrão**, de 7 minutos, já vem criado). Não têm relação com os tipos de boss da seção Sessões. O seletor da aba **Ranking** escolhe o boss, e o app lembra o último usado. Em **Gerenciar bosses → Novo/Editar boss** também ficam os elementos dele (só informativos) e a efetividade de cada ataque contra ele, copiada da Pokédex do jogo; o que não for marcado conta como Normal. Os elementos e a efetividade aparecem no Ranking como etiquetas com as cores dos tipos. **Adicionar pokémon** abre a lista para marcar quem pode lutar contra ele.
 - **Calcular por**: seletor do Ranking, salvo em cada boss, que define de onde vem o dano de cada skill e do básico. Todos os pokémons do boss usam a mesma opção. Veja a tabela abaixo.
-- **Pokémons**: a aba **Pokémons** lista todos os cadastrados, com pesquisa e as skills do selecionado, e é onde ficam **Novo**, **Editar**, **Duplicar** e **Excluir**. Um pokémon novo nasce sem boss. No Ranking, o duplo clique também abre a edição. O cadastro tem nome, observação, ataque básico, buff e skills, com elemento opcional no básico e em cada skill (usado só no cálculo por Efetividade). O dano não é digitado no cadastro: lá ele só aparece, conforme o dummy escolhido em **Ver dano no dummy**. Cada skill tem forma (Área ou Target), alcance (Melee ou Ranged), dano, recarga e aproveitamento. **Duplicar** serve para comparar builds, ou o mesmo pokémon com danos diferentes em dois bosses.
+- **Pokémons**: a aba **Pokémons** lista todos os cadastrados, com pesquisa e as skills do selecionado, e é onde ficam **Novo**, **Editar**, **Duplicar** e **Excluir**. Um pokémon novo nasce sem boss. No Ranking, **Editar** (ou o duplo clique) abre a edição, e **Remover** tira o pokémon do boss sem apagar o cadastro. O cadastro tem nome, observação, ataque básico, buff e skills, com elemento opcional no básico e em cada skill (usado só no cálculo por Efetividade). O dano não é digitado no cadastro: lá ele só aparece, conforme o dummy escolhido em **Ver dano no dummy**. Cada skill tem forma (Área ou Target), alcance (Melee ou Ranged), dano, recarga e aproveitamento. **Duplicar** serve para comparar builds, ou o mesmo pokémon com danos diferentes em dois bosses.
 - **Ranking**: só os pokémons anexados ao boss, com dano total e DPS no tempo limite, com barra proporcional ao 1º colocado. À direita aparece quanto cada skill, o básico e o buff somam ao total.
 - **Testes**: na aba **Pokémons**, o botão **Testes** registra os danos medidos nos dummies do jogo (Neutro ou um dos 18 elementos) e dentro dos bosses cadastrados (**Boss: nome**). Cada skill e o ataque básico podem ter um teste por dummy e por boss, com até 3 danos e a média dos preenchidos. O que não foi testado onde o boss pede conta como **0** e aparece com o aviso "sem teste", sem usar outro teste como substituto. Excluir um boss apaga os testes feitos nele. Tudo é gravado ao trocar de skill e ao fechar a janela. **Duplicar** copia os testes, e remover uma skill apaga os dela.
 - **Ajustes**: turno do ataque básico (2,5 s, vale para todos os pokémons) e os aproveitamentos sugeridos em novos cadastros (Target + Melee 75%, demais skills 100%, ataque básico 75%).
@@ -202,10 +216,10 @@ Cada pokémon tem no máximo um buff. O bônus na próxima magia usa a magia que
 
 ## Funcionalidades
 
-- **Filtros** (no topo do Dashboard, Hunts, Bosses e Relatórios): um único filtro vale para todas essas páginas. Veja [Filtros](#filtros).
-- **Dashboard**: seletor de categoria (começa em Hunts e bosses; também Hunts, Todos os bosses ou um tipo de boss); cards com sessões analisadas, tempo total, kills, profit, Profit/h médio, Kills/h médio, supplies e raw gains; **Resumo por categoria**, com profit, sessões, kills, tempo e Profit/h de Hunts, Rifts, Energia Vermelha, Energia Azul e Terrors (com os filtros, independente do seletor); e 8 gráficos por sessão em ordem cronológica: Profit/h, Kills/h, Profit, Supplies/h, Damage dealt/s, Damage taken/s, Kills e Duração. Passe o mouse para ver o valor; clique em uma barra para abrir a sessão. Os gráficos aparecem a partir de 2 sessões, e com mais de 60 viram linha. O resumo detalhado de cada boss fica na página [Bosses](#bosses).
+- **Filtros** (no topo do Início, das listas de Sessões, de Relatórios, Itens e Inimigos): um único filtro vale para todas essas páginas. Veja [Filtros](#filtros).
+- **Início**: seletor de categoria (começa em Hunts e bosses; também Hunts, Todos os bosses ou um tipo de boss); cards em destaque com profit, Profit/h médio, Kills/h médio e tempo total, e menores com sessões analisadas, kills, supplies e raw gains; **Resumo por categoria**, com profit, sessões, kills, tempo e Profit/h de cada categoria com sessões, aparecendo só quando há mais de uma (com os filtros, independente do seletor); e 8 gráficos por sessão em ordem cronológica: Profit/h, Kills/h, Profit, Supplies/h, Damage dealt/s, Damage taken/s, Kills e Duração. Passe o mouse para ver o valor; clique em uma barra para abrir a sessão. Os gráficos aparecem a partir de 2 sessões, e com mais de 60 viram linha. O resumo detalhado de cada boss fica na seção Sessões, explicada em [Bosses](#bosses).
   O **Profit/h médio** (média simples dos Profit/h de cada Hunt) é exibido separado do **Profit total ÷ tempo total** (ponderado pela duração).
-- **Hunts**: tabela ordenável por qualquer coluna, pesquisa rápida, seleção múltipla, detalhes, **comparação**, exclusão (`Del`), exportação e atualização (`F5`).
+- **Listas de sessões**: tabela ordenável por qualquer coluna, pesquisa rápida, seleção múltipla, detalhes, **comparação**, exclusão (`Del`) e exportação.
 - **Comparação**: selecione 2 ou mais Hunts (`Ctrl`+clique ou `Shift`+clique) e clique em **Comparar**. As métricas ficam nas linhas e as Hunts nas colunas, lado a lado, em ordem cronológica e sem ranking. Pode ser exportada.
 - **Itens** e **Inimigos**: escolha um drop, supply ou inimigo para ver quantidade total, valor total, presença (em quantas Hunts apareceu), média por Hunt e por hora, valor médio, maior e menor quantidade, gráfico por Hunt e a lista das Hunts em que apareceu. As médias consideram as Hunts em que o item apareceu; no gráfico, as Hunts em que ele não apareceu ficam como barras vazias.
 - **Relatórios**: tabela de métricas (duração, kills, profit, supplies, raw gains, experience, damage dealt/taken) com total, média por Hunt, mínimo, máximo, **média das taxas** e **total ÷ tempo total**, mais rankings (top 25) de drops por valor, supplies por custo e inimigos por quantidade.
@@ -246,7 +260,7 @@ Valores aceitam a notação do jogo: `800k`, `1,2kk`, `1.5kk`, `1.000.000`. A du
 
 ## Exportação
 
-O botão **Exportar** (menu com os formatos) existe nas páginas Hunts, Relatórios, Itens e Inimigos e na janela de Comparação. Sempre exporta o que está na tela: as Hunts filtradas e pesquisadas, na ordem exibida, ou o relatório com os filtros atuais, descritos no próprio arquivo.
+O botão **Exportar** (menu com os formatos) existe nas listas de sessões, em Relatórios, Itens e Inimigos e na janela de Comparação. Sempre exporta o que está na tela: as Hunts filtradas e pesquisadas, na ordem exibida, ou o relatório com os filtros atuais, descritos no próprio arquivo.
 
 | Formato | Conteúdo |
 |---|---|
@@ -313,22 +327,22 @@ pokexgames-hunt-analyzer/
 │   │   ├── statistics_service.py# Totais, médias, taxas, métricas e rankings
 │   │   └── dto.py               # Objetos trocados entre serviços e interface
 │   ├── ui/
-│   │   ├── main_window.py       # QMainWindow + menu + navegação
-│   │   ├── sidebar.py           # Barra lateral
+│   │   ├── main_window.py       # QMainWindow + seções, sub-navegação e atalhos
+│   │   ├── sidebar.py           # Barra lateral com o botão Importar
 │   │   ├── theme.py             # Temas escuro e claro (paleta + QSS)
 │   │   ├── icons.py             # Ícones SVG de resources/icons
 │   │   ├── import_controller.py # Fluxo de importação na interface
 │   │   ├── charts/              # Gráficos pyqtgraph (por Hunt e barras ordenadas)
 │   │   ├── filters/             # Estado do filtro + painel de filtros
-│   │   ├── dashboard/           # Página Dashboard
-│   │   ├── bosses/              # Página Bosses (uma aba por tipo de boss)
+│   │   ├── dashboard/           # Página Início
+│   │   ├── bosses/              # Sessões de cada tipo de boss (Resumo e Lista)
 │   │   ├── dps/                 # Página DPS (abas Ranking e Pokémons, cadastro e testes)
 │   │   ├── hunts/               # Lista de Hunts, detalhes, comparação e colar JSON
 │   │   ├── items/               # Páginas Itens e Inimigos
 │   │   ├── prices/              # Página Preços
 │   │   ├── reports/             # Página Relatórios
 │   │   ├── settings/            # Configurações
-│   │   └── widgets/             # Tabela genérica, cards, combos, botão Exportar
+│   │   └── widgets/             # Tabela genérica, cards, combos, sub-navegação, botão Exportar
 │   └── utils/
 │       ├── constants.py         # Nomes e chaves do JSON do Analyzer
 │       ├── formatters.py        # 1.119.522 · 01:11:50 · 119,5 M
@@ -381,7 +395,7 @@ Rodar todos os testes (incluindo o teste de fumaça da interface, que roda sem a
 python -m unittest discover -s tests -t .
 ```
 
-Os testes cobrem: JSON válido, inválido e incompleto; importação por arquivo e por texto colado; duplicidade (conteúdo idêntico, re-exportação, forçar importação); exclusão em cascata; persistência em arquivo; cálculos de duração, dinheiro e estatísticas; cada critério de filtro e suas combinações contra o SQLite real; pesquisa avançada; relatórios por item/inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; leitura das mensagens do chat e recompensas somadas e removidas das sessões; importação de pastas e arrastar e soltar; a conta do DPS (com a conferência da lista do colega), as três opções de Calcular por, os testes de dano e a migração dos bancos antigos; e os fluxos da interface (painel de filtros, Dashboard, Relatórios, comparação, Itens, Inimigos, detalhes e DPS).
+Os testes cobrem: JSON válido, inválido e incompleto; importação por arquivo e por texto colado; duplicidade (conteúdo idêntico, re-exportação, forçar importação); exclusão em cascata; persistência em arquivo; cálculos de duração, dinheiro e estatísticas; cada critério de filtro e suas combinações contra o SQLite real; pesquisa avançada; relatórios por item/inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; leitura das mensagens do chat e recompensas somadas e removidas das sessões; importação de pastas e arrastar e soltar; a conta do DPS (com a conferência da lista do colega), as três opções de Calcular por, os testes de dano e a migração dos bancos antigos; e os fluxos da interface (navegação, painel de filtros, Início, Relatórios, comparação, Itens, Inimigos, detalhes e DPS).
 
 ### Suportar um novo campo do Analyzer
 

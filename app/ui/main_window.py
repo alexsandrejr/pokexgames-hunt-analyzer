@@ -1,4 +1,4 @@
-"""Janela principal: sidebar + páginas empilhadas + menu."""
+"""Janela principal: sidebar + sub-navegação da seção + páginas empilhadas."""
 
 from __future__ import annotations
 
@@ -15,12 +15,21 @@ from PySide6.QtGui import (
     QDropEvent,
     QKeySequence,
 )
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QStackedWidget, QWidget
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app.services.backup_service import BackupService
-from app.services.categories import Category
+from app.services.categories import BOSS_CATEGORIES, Category
 from app.services.dps_service import DpsService
 from app.services.entity_report import EntityKind
+from app.services.filters import EMPTY_FILTER
 from app.services.hunt_service import HuntService
 from app.services.price_service import PriceService
 from app.services.settings_service import AppSettings, SettingsStore
@@ -28,7 +37,7 @@ from app.services.statistics_service import StatisticsService
 from app.ui.bosses.bosses_widget import BossesPage
 from app.ui.dashboard.dashboard_widget import DashboardPage
 from app.ui.dps.dps_widget import DpsPage
-from app.ui.hunts.hunts_widget import HuntsPage
+from app.ui.hunts.hunts_widget import AllSessionsPage, HuntsPage
 from app.ui.filters.filter_controller import FilterController
 from app.ui.filters.filter_panel import FilterPanel
 from app.ui.hunts.hunt_details import show_hunt_details
@@ -41,19 +50,38 @@ from app.ui.sidebar import NavItem, Sidebar
 from app.ui.items.entity_report_page import EntityReportPage
 from app.ui.widgets.drop_overlay import DropOverlay
 from app.ui.widgets.export_button import ExportButton
+from app.ui.widgets.section_bar import SectionBar
 from app.utils.constants import APP_NAME, APP_VERSION
 
 NAV_ITEMS = [
-    NavItem("dashboard", "Dashboard", "dashboard"),
-    NavItem("hunts", "Hunts", "hunts"),
-    NavItem("bosses", "Bosses", "bosses"),
+    NavItem("dashboard", "Início", "dashboard"),
+    NavItem("sessions", "Sessões", "hunts"),
+    NavItem("analysis", "Análise", "reports"),
     NavItem("dps", "DPS", "dps"),
-    NavItem("reports", "Relatórios", "reports"),
-    NavItem("items", "Itens", "items"),
-    NavItem("enemies", "Inimigos", "enemies"),
-    NavItem("prices", "Preços", "prices"),
-    NavItem("settings", "Configurações", "settings"),
+    NavItem("settings", "Configurações", "settings", at_bottom=True),
 ]
+
+BOSS_KEY_PREFIX = "boss:"
+
+
+def boss_key(category: Category) -> str:
+    return f"{BOSS_KEY_PREFIX}{category.value}"
+
+
+# Sub-navegação das seções com mais de uma página: (chave, rótulo), na ordem exibida.
+SECTION_PAGES: dict[str, tuple[tuple[str, str], ...]] = {
+    "sessions": (
+        ("all_sessions", "Todas"),
+        ("hunts", "Hunts"),
+        *((boss_key(category), category.plural) for category in BOSS_CATEGORIES),
+    ),
+    "analysis": (
+        ("reports", "Relatórios"),
+        ("items", "Itens"),
+        ("enemies", "Inimigos"),
+        ("prices", "Preços"),
+    ),
+}
 
 
 class MainWindow(QMainWindow):
@@ -83,12 +111,14 @@ class MainWindow(QMainWindow):
 
         self.dashboard_page = DashboardPage(hunt_service, statistics_service, self.filters,
                                             self.open_hunt)
-        self.hunts_page = HuntsPage(hunt_service, self.importer, self.filters)
-        self.bosses_page = BossesPage(hunt_service, statistics_service, self.importer,
-                                      self.filters, self.open_hunt)
+        self.all_sessions_page = AllSessionsPage(hunt_service, self.filters)
+        self.hunts_page = HuntsPage(hunt_service, self.filters)
+        self.bosses_page = BossesPage(hunt_service, statistics_service, self.filters,
+                                      self.open_hunt)
         self.reports_page = ReportsPage(statistics_service, self.filters)
         self.pages: dict[str, QWidget] = {
             "dashboard": self.dashboard_page,
+            "all_sessions": self.all_sessions_page,
             "hunts": self.hunts_page,
             "bosses": self.bosses_page,
             "dps": DpsPage(dps_service or DpsService(hunt_service.database)),
@@ -110,18 +140,30 @@ class MainWindow(QMainWindow):
         self.settings_page.restart_requested.connect(self._request_restart)
 
         self.stack = QStackedWidget()
-        for item in NAV_ITEMS:
-            self.stack.addWidget(self.pages[item.key])
+        for page in self.pages.values():
+            self.stack.addWidget(page)
 
-        self.sidebar = Sidebar(NAV_ITEMS)
-        self.sidebar.page_selected.connect(self.show_page_index)
+        self.sidebar = Sidebar(NAV_ITEMS, self._build_import_menu())
+        self.sidebar.section_selected.connect(self.show_page)
+        self.sidebar.about_requested.connect(self._show_about)
+        self.section_bar = SectionBar()
+        self.section_bar.selected.connect(self.show_page)
+        self._section: str | None = None
+        # Ao voltar a uma seção, abre a última sub-página usada nela.
+        self._last_in_section = {section: pages[0][0] for section, pages in SECTION_PAGES.items()}
+
+        content = QVBoxLayout()
+        content.setContentsMargins(0, 0, 0, 0)
+        content.setSpacing(0)
+        content.addWidget(self.section_bar)
+        content.addWidget(self.stack, 1)
 
         central = QWidget()
         layout = QHBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self.sidebar)
-        layout.addWidget(self.stack, 1)
+        layout.addLayout(content, 1)
         self.setCentralWidget(central)
 
         # Arrastar e soltar arquivos .json/.tsv ou pastas em qualquer ponto da janela.
@@ -130,45 +172,65 @@ class MainWindow(QMainWindow):
 
         for button in self.findChildren(ExportButton):
             button.exported.connect(self._announce_export)
-        self._build_menu()
-        self.statusBar().showMessage("Pronto", 3000)
+        self._add_window_shortcuts()
+        # A barra de status só aparece enquanto há uma mensagem para mostrar.
+        self.statusBar().setSizeGripEnabled(False)
+        self.statusBar().messageChanged.connect(
+            lambda text: self.statusBar().setVisible(bool(text)))
+        self.statusBar().hide()
         self.show_page("dashboard")
 
-    def _build_menu(self) -> None:
-        hunts_menu = self.menuBar().addMenu("&Hunts")
-        import_action = QAction(icon("import"), "&Importar JSON/TSV…", self)
+    def _build_import_menu(self) -> QMenu:
+        """Menu do botão Importar; as ações ficam na janela para os atalhos valerem sempre."""
+        menu = QMenu(self)
+        import_action = QAction(icon("import"), "Arquivos JSON/TSV…", self)
         import_action.setShortcut(QKeySequence("Ctrl+I"))
         import_action.triggered.connect(self.importer.choose_and_import)
-        folder_action = QAction(icon("folder"), "Importar &pasta…", self)
+        folder_action = QAction(icon("folder"), "Pasta inteira…", self)
         folder_action.setShortcut(QKeySequence("Ctrl+Shift+I"))
         folder_action.triggered.connect(self.importer.choose_folder_and_import)
-        paste_action = QAction(icon("paste"), "&Colar JSON/TSV…", self)
+        paste_action = QAction(icon("paste"), "Colar texto…", self)
         paste_action.setShortcut(QKeySequence("Ctrl+Shift+V"))
         paste_action.triggered.connect(self.importer.paste_and_import)
-        refresh_action = QAction(icon("refresh"), "&Atualizar", self)
+        menu.addActions([import_action, folder_action, paste_action])
+        self.addActions([import_action, folder_action, paste_action])
+        return menu
+
+    def _add_window_shortcuts(self) -> None:
+        refresh_action = QAction(self)
         refresh_action.setShortcut(QKeySequence.StandardKey.Refresh)
         refresh_action.triggered.connect(self.refresh_current_page)
-        quit_action = QAction("&Sair", self)
+        quit_action = QAction(self)
         quit_action.setShortcut(QKeySequence.StandardKey.Quit)
         quit_action.triggered.connect(self.close)
-        hunts_menu.addActions([import_action, folder_action, paste_action, refresh_action])
-        hunts_menu.addSeparator()
-        hunts_menu.addAction(quit_action)
-
-        help_menu = self.menuBar().addMenu("A&juda")
-        about_action = QAction("&Sobre", self)
-        about_action.triggered.connect(self._show_about)
-        help_menu.addAction(about_action)
+        self.addActions([refresh_action, quit_action])
 
     # ------------------------------------------------------------ navegação
 
     def show_page(self, key: str) -> None:
-        self.show_page_index([item.key for item in NAV_ITEMS].index(key))
+        """Abre uma seção (última sub-página usada), uma página ou um tipo de boss."""
+        key = self._last_in_section.get(key, key)
+        if key == "bosses":
+            key = boss_key(self.bosses_page.current_category)
+        if key.startswith(BOSS_KEY_PREFIX):
+            self.bosses_page.select_category(
+                Category.from_value(key.removeprefix(BOSS_KEY_PREFIX)))
+            page = self.bosses_page
+        else:
+            page = self.pages[key]
 
-    def show_page_index(self, index: int) -> None:
-        self.sidebar.set_current(index)
-        self.stack.setCurrentIndex(index)
-        self._attach_filter_panel(self.stack.currentWidget())
+        section = next((name for name, pages in SECTION_PAGES.items()
+                        if any(sub_key == key for sub_key, _label in pages)), key)
+        if section != self._section:
+            self._section = section
+            self.section_bar.set_items(SECTION_PAGES.get(section, ()))
+            self.section_bar.setVisible(section in SECTION_PAGES)
+        if section in SECTION_PAGES:
+            self._last_in_section[section] = key
+        self.sidebar.set_current(section)
+        self.section_bar.set_current(key)
+        self.stack.setCurrentWidget(page)
+        self._attach_filter_panel(page)
         self.refresh_current_page()
 
     def _attach_filter_panel(self, page: QWidget) -> None:
@@ -189,7 +251,20 @@ class MainWindow(QMainWindow):
         if dialog is not None:
             dialog.hunt_changed.connect(lambda _id: self.refresh_current_page())
 
+    def _update_session_counts(self) -> None:
+        """Quantas sessões há em cada categoria, nos rótulos da sub-navegação de Sessões."""
+        if self._section != "sessions":
+            return
+        counts = {"all_sessions": EMPTY_FILTER,
+                  "hunts": EMPTY_FILTER.scoped(Category.HUNT),
+                  **{boss_key(category): EMPTY_FILTER.scoped(category)
+                     for category in BOSS_CATEGORIES}}
+        for key, label in SECTION_PAGES["sessions"]:
+            count = self._hunt_service.count_hunts(counts[key])
+            self.section_bar.set_label(key, f"{label} ({count})" if count else label)
+
     def refresh_current_page(self) -> None:
+        self._update_session_counts()
         page = self.stack.currentWidget()
         refresh = getattr(page, "refresh", None)
         if callable(refresh):
@@ -208,7 +283,7 @@ class MainWindow(QMainWindow):
         target = counts.most_common(1)[0][0] if counts else Category.HUNT
         ids = [s.id for s in summaries if Category.from_value(s.category) is target]
         if target.is_boss:
-            self.show_page("bosses")
+            self.show_page(boss_key(target))
             self.bosses_page.show_category(target, ids)
             selected = self.bosses_page.views[target].sessions.selected_ids()
         else:

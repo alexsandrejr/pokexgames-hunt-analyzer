@@ -14,22 +14,27 @@ from app.config import ICONS_DIR
 
 PALETTES: dict[str, dict[str, str]] = {
     "dark": {
-        "bg": "#0f1116",
-        "sidebar": "#12151b",
-        "surface": "#171a21",
-        "surface_alt": "#1e222b",
-        "surface_hover": "#252a35",
-        "border": "#2a2f3a",
-        "text": "#e5e7eb",
-        "muted": "#8b93a3",
+        "bg": "#14171c",
+        "sidebar": "#181b21",
+        "surface": "#1a1e25",
+        "surface_alt": "#232831",
+        "surface_hover": "#2b313b",
+        "border": "#303640",
+        "text": "#e8eaef",
+        "muted": "#9aa3b2",
         "icon": "#aeb6c4",
         "accent": "#5b8cff",
         "accent_hover": "#739dff",
+        # Botão principal mais escuro que o destaque: o texto branco precisa de contraste.
+        "primary": "#3b6fe0",
+        "primary_hover": "#4a7bea",
         "accent_soft": "rgba(91, 140, 255, 0.16)",
         "selection": "rgba(91, 140, 255, 0.28)",
         "positive": "#3ecf8e",
         "negative": "#f06a6a",
         "warning": "#f5b841",
+        "chevron": "chevron-down.svg",
+        "chevron_up": "chevron-up.svg",
         # Gráficos: série validada (guia de dataviz) contra a superfície escura.
         "chart_series": "#3987e5",
         "chart_series_hover": "#6aa6ee",
@@ -38,22 +43,26 @@ PALETTES: dict[str, dict[str, str]] = {
         "chart_reference": "#6b7280",
     },
     "light": {
-        "bg": "#f4f5f7",
-        "sidebar": "#eceef2",
+        "bg": "#f6f7f9",
+        "sidebar": "#ffffff",
         "surface": "#ffffff",
-        "surface_alt": "#f3f4f6",
-        "surface_hover": "#e8eaee",
-        "border": "#dcdfe5",
-        "text": "#111827",
-        "muted": "#5f6675",
+        "surface_alt": "#f1f3f6",
+        "surface_hover": "#e9ecf1",
+        "border": "#e1e4ea",
+        "text": "#15192a",
+        "muted": "#5a6272",
         "icon": "#4b5263",
         "accent": "#2a6fd6",
         "accent_hover": "#1f5fbf",
+        "primary": "#2a6fd6",
+        "primary_hover": "#1f5fbf",
         "accent_soft": "rgba(42, 111, 214, 0.12)",
         "selection": "rgba(42, 111, 214, 0.18)",
         "positive": "#0f7a3a",
         "negative": "#c62828",
         "warning": "#a15c00",
+        "chevron": "chevron-down-strong.svg",
+        "chevron_up": "chevron-up-strong.svg",
         # Série validada contra a superfície clara (#ffffff).
         "chart_series": "#2a78d6",
         "chart_series_hover": "#1c5cab",
@@ -63,6 +72,15 @@ PALETTES: dict[str, dict[str, str]] = {
     },
 }
 DEFAULT_THEME = "dark"
+
+# Cores clássicas dos tipos de pokémon: as mesmas nos dois temas, para serem reconhecidas.
+ELEMENT_COLORS: dict[str, str] = {
+    "Normal": "#a8a77a", "Fire": "#ee8130", "Water": "#6390f0", "Grass": "#7ac74c",
+    "Electric": "#f7d02c", "Ice": "#96d9d6", "Fighting": "#c22e28", "Poison": "#a33ea1",
+    "Ground": "#e2bf65", "Flying": "#a98ff3", "Psychic": "#f95587", "Bug": "#a6b91a",
+    "Rock": "#b6a136", "Ghost": "#735797", "Dragon": "#6f35fc", "Dark": "#705746",
+    "Steel": "#b7b7ce", "Fairy": "#d685ad",
+}
 
 # Tema ativo (mutável, para que ``from app.ui.theme import COLORS`` veja a troca).
 COLORS: dict[str, str] = dict(PALETTES[DEFAULT_THEME])
@@ -97,41 +115,66 @@ def _stylesheet(c: dict[str, str]) -> str:
     /* Sidebar */
     #Sidebar {{ background: {c['sidebar']}; border-right: 1px solid {c['border']}; }}
     #SidebarTitle {{ font-size: 12pt; font-weight: 600; }}
-    #SidebarSubtitle, #SidebarFooter {{ color: {c['muted']}; font-size: 8.5pt; }}
+    #SidebarSubtitle {{ color: {c['muted']}; font-size: 9pt; }}
     QPushButton#NavButton {{
         background: transparent; border: none; border-radius: 8px;
         color: {c['muted']}; padding: 9px 12px; text-align: left; font-size: 10pt;
     }}
     QPushButton#NavButton:hover {{ background: {c['surface_alt']}; color: {c['text']}; }}
+    QPushButton#NavButton:focus {{ background: {c['surface_alt']}; color: {c['text']}; }}
     QPushButton#NavButton:checked {{
-        background: {c['accent_soft']}; color: {c['text']}; font-weight: 600;
+        background: {c['accent_soft']}; color: {c['accent']}; font-weight: 600;
     }}
+    QPushButton#SidebarFooter {{
+        background: transparent; border: none; color: {c['muted']};
+        font-size: 9pt; padding: 4px 12px; text-align: left;
+    }}
+    QPushButton#SidebarFooter:hover {{ color: {c['text']}; }}
+
+    /* Sub-navegação das seções (Sessões e Análise) */
+    #SectionBar {{ background: transparent; }}
+    QPushButton#SectionPill {{
+        background: transparent; border: 1px solid transparent; border-radius: 14px;
+        color: {c['muted']}; padding: 5px 14px;
+    }}
+    QPushButton#SectionPill:hover {{ background: {c['surface_hover']}; color: {c['text']}; }}
+    QPushButton#SectionPill:focus {{ border-color: {c['accent']}; }}
+    /* Sem negrito ao marcar: o botão não recalcula a largura e cortaria o texto. */
+    QPushButton#SectionPill:checked {{ background: {c['accent_soft']}; color: {c['accent']}; }}
 
     /* Páginas */
-    #PageTitle {{ font-size: 17pt; font-weight: 600; }}
+    #PageTitle {{ font-size: 16pt; font-weight: 600; }}
     #PageSubtitle {{ color: {c['muted']}; }}
     #SectionTitle {{ font-size: 11pt; font-weight: 600; }}
     #MutedLabel {{ color: {c['muted']}; }}
     #EmptyTitle {{ font-size: 13pt; font-weight: 600; }}
+    #SelectionLabel {{ color: {c['accent']}; font-weight: 600; }}
 
     /* Cards */
-    #Card {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 12px; }}
+    #Card {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 10px; }}
     #CardTitle {{ color: {c['muted']}; font-size: 9pt; }}
-    #CardValue {{ font-size: 17pt; font-weight: 600; }}
-    #CardHint {{ color: {c['muted']}; font-size: 8.5pt; }}
+    #CardValue {{ font-size: 18pt; font-weight: 600; }}
+    #CardValueCompact {{ font-size: 12pt; font-weight: 600; }}
+    #CardHint {{ color: {c['muted']}; font-size: 9pt; }}
     #FieldLabel {{ color: {c['muted']}; }}
     #FieldValue {{ font-weight: 600; }}
 
     /* Botões */
     QPushButton {{
-        background: {c['surface_alt']}; border: 1px solid {c['border']}; border-radius: 8px;
+        background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 7px;
         padding: 7px 14px; color: {c['text']};
     }}
+    QPushButton:focus {{ border-color: {c['accent']}; }}
+    QPushButton::menu-indicator {{
+        image: url({icons}/{c['chevron']}); width: 10px; height: 10px;
+        subcontrol-position: center right; subcontrol-origin: padding; right: 8px;
+    }}
+    QPushButton#PrimaryButton::menu-indicator {{ image: url({icons}/chevron-down-white.svg); }}
     QPushButton:hover {{ background: {c['surface_hover']}; border-color: {c['accent']}; }}
     QPushButton:pressed {{ background: {c['surface']}; }}
     QPushButton:disabled {{ color: {c['muted']}; border-color: {c['border']}; background: {c['surface']}; }}
-    QPushButton#PrimaryButton {{ background: {c['accent']}; border: 1px solid {c['accent']}; color: #ffffff; font-weight: 600; }}
-    QPushButton#PrimaryButton:hover {{ background: {c['accent_hover']}; }}
+    QPushButton#PrimaryButton {{ background: {c['primary']}; border: 1px solid {c['primary']}; color: #ffffff; font-weight: 600; }}
+    QPushButton#PrimaryButton:hover {{ background: {c['primary_hover']}; }}
     QPushButton#PrimaryButton:disabled {{
         background: {c['surface_alt']}; border-color: {c['border']}; color: {c['muted']};
     }}
@@ -139,16 +182,26 @@ def _stylesheet(c: dict[str, str]) -> str:
 
     /* Entradas */
     QLineEdit, QComboBox {{
-        background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 8px;
+        background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 7px;
         padding: 6px 10px; selection-background-color: {c['accent']};
     }}
     QLineEdit:focus, QComboBox:focus {{ border-color: {c['accent']}; }}
+    QComboBox::drop-down {{
+        subcontrol-origin: padding; subcontrol-position: center right;
+        width: 24px; border: none; background: transparent;
+    }}
+    QComboBox::down-arrow {{ image: url({icons}/{c['chevron']}); width: 10px; height: 10px; }}
 
     QDateEdit {{
         background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 8px;
         padding: 6px 8px;
     }}
     QDateEdit:focus {{ border-color: {c['accent']}; }}
+    QDateEdit::drop-down {{
+        subcontrol-origin: padding; subcontrol-position: center right;
+        width: 22px; border: none; background: transparent;
+    }}
+    QDateEdit::down-arrow {{ image: url({icons}/{c['chevron']}); width: 10px; height: 10px; }}
     QDateEdit:disabled, QComboBox:disabled, QLineEdit:disabled {{ color: {c['muted']}; }}
     QComboBox QAbstractItemView {{
         background: {c['surface']}; border: 1px solid {c['border']};
@@ -166,8 +219,8 @@ def _stylesheet(c: dict[str, str]) -> str:
     QSpinBox::up-button {{ subcontrol-position: top right; }}
     QSpinBox::down-button {{ subcontrol-position: bottom right; }}
     QSpinBox::up-button:hover, QSpinBox::down-button:hover {{ background: {c['surface_hover']}; }}
-    QSpinBox::up-arrow {{ image: url({icons}/chevron-up.svg); width: 10px; height: 10px; }}
-    QSpinBox::down-arrow {{ image: url({icons}/chevron-down.svg); width: 10px; height: 10px; }}
+    QSpinBox::up-arrow {{ image: url({icons}/{c['chevron_up']}); width: 10px; height: 10px; }}
+    QSpinBox::down-arrow {{ image: url({icons}/{c['chevron']}); width: 10px; height: 10px; }}
     QCheckBox {{ spacing: 8px; }}
     QCheckBox::indicator {{
         width: 16px; height: 16px; border-radius: 4px;
@@ -212,7 +265,7 @@ def _stylesheet(c: dict[str, str]) -> str:
     QProgressBar#RankingBar::chunk {{ background: {c['chart_series']}; border-radius: 4px; }}
 
     /* Painel de filtros */
-    #FilterPanel {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 12px; }}
+    #FilterPanel {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 10px; }}
     QToolButton#FilterToggle {{
         background: transparent; border: none; font-weight: 600; padding: 4px 2px;
     }}
@@ -230,18 +283,21 @@ def _stylesheet(c: dict[str, str]) -> str:
 
     /* Tabelas */
     QTableView {{
-        background: {c['surface']}; alternate-background-color: {c['surface_alt']};
+        background: {c['surface']}; alternate-background-color: {c['surface']};
         border: 1px solid {c['border']}; border-radius: 10px; gridline-color: transparent;
         selection-background-color: {c['selection']}; selection-color: {c['text']};
         outline: 0;
     }}
-    QTableView::item {{ padding: 4px 8px; border: none; }}
+    QTableView::item {{ padding: 4px 8px; border: none; border-bottom: 1px solid {c['surface_alt']}; }}
     QHeaderView {{ background: transparent; }}
+    /* Mesmo recuo das células (8px + 3px da margem de texto), para alinhar os números. */
     QHeaderView::section {{
-        background: {c['surface_alt']}; color: {c['muted']}; font-weight: 600;
-        padding: 8px 18px 8px 8px; border: none; border-bottom: 1px solid {c['border']};
+        background: {c['surface']}; color: {c['muted']}; font-weight: 600;
+        padding: 8px 11px; border: none; border-bottom: 1px solid {c['border']};
     }}
-    QTableCornerButton::section {{ background: {c['surface_alt']}; border: none; }}
+    QHeaderView::down-arrow {{ image: url({icons}/{c['chevron']}); width: 9px; height: 9px; }}
+    QHeaderView::up-arrow {{ image: url({icons}/{c['chevron_up']}); width: 9px; height: 9px; }}
+    QTableCornerButton::section {{ background: {c['surface']}; border: none; }}
 
     /* Abas */
     QTabWidget::pane {{
@@ -272,9 +328,6 @@ def _stylesheet(c: dict[str, str]) -> str:
     QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 
     /* Menus e status */
-    QMenuBar {{ background: {c['sidebar']}; border-bottom: 1px solid {c['border']}; }}
-    QMenuBar::item {{ padding: 6px 10px; background: transparent; }}
-    QMenuBar::item:selected {{ background: {c['surface_alt']}; border-radius: 6px; }}
     QMenu {{ background: {c['surface']}; border: 1px solid {c['border']}; padding: 4px; }}
     QMenu::item {{ padding: 6px 24px 6px 12px; border-radius: 6px; }}
     QMenu::item:selected {{ background: {c['accent_soft']}; }}

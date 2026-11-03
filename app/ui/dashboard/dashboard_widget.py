@@ -1,8 +1,8 @@
-"""Página Dashboard: cards e gráficos das sessões filtradas.
+"""Página Início: cards e gráficos das sessões filtradas.
 
 O seletor de categoria começa em "Hunts e bosses", para que o dinheiro dos bosses
-entre na visão geral; o "Resumo por categoria" mostra cada tipo separado. O resumo
-detalhado de cada boss fica na página Bosses.
+entre na visão geral; o "Resumo por categoria" mostra cada tipo com sessões. O resumo
+detalhado de cada boss fica na seção Sessões.
 """
 
 from __future__ import annotations
@@ -94,35 +94,45 @@ class DashboardPage(QWidget):
         self._statistics = statistics
         self._filters = filters
 
-        self._header = PageHeader("Dashboard", "Visão geral das sessões importadas")
+        self._header = PageHeader("Início", "Visão geral das sessões importadas")
         self.scope = CategoryScopeCombo(default=DEFAULT_SCOPE)
         self.scope.currentIndexChanged.connect(self.refresh)
         self._header.add_action(self.scope)
+        # O que mais importa em destaque; o restante, menor, logo abaixo.
         self._cards = {
-            "hunts": StatCard("Sessões analisadas"),
-            "duration": StatCard("Tempo total"),
-            "kills": StatCard("Kills"),
             "profit": StatCard("Profit"),
             "profit_h": StatCard("Profit/h médio"),
             "kills_h": StatCard("Kills/h médio"),
-            "supplies": StatCard("Supplies"),
-            "raw_gains": StatCard("Raw Gains"),
+            "duration": StatCard("Tempo total"),
+            "hunts": StatCard("Sessões analisadas", compact=True),
+            "kills": StatCard("Kills", compact=True),
+            "supplies": StatCard("Supplies", compact=True),
+            "raw_gains": StatCard("Raw Gains", compact=True),
         }
+        cards = list(self._cards.values())
+        self._cards_section = QWidget()
+        cards_layout = QVBoxLayout(self._cards_section)
+        cards_layout.setContentsMargins(0, 0, 0, 0)
+        cards_layout.setSpacing(14)
+        cards_layout.addWidget(ResponsiveGrid(cards[:4], min_item_width=160))
+        cards_layout.addWidget(ResponsiveGrid(cards[4:], min_item_width=160))
         self._empty_hint = QLabel(objectName="MutedLabel")
         self._empty_hint.setWordWrap(True)
 
-        # Um card por categoria (Hunts e cada tipo de boss): sempre todas, com o filtro.
-        self.category_cards = {category: StatCard(category.plural) for category in Category}
-        categories_section = QWidget()
-        categories_layout = QVBoxLayout(categories_section)
+        # Um card por categoria (Hunts e cada tipo de boss), só das que têm sessões.
+        self.category_cards = {category: StatCard(category.plural, compact=True)
+                               for category in Category}
+        self._categories_grid = ResponsiveGrid(list(self.category_cards.values()),
+                                               min_item_width=200, max_columns=5)
+        self._categories_section = QWidget()
+        categories_layout = QVBoxLayout(self._categories_section)
         categories_layout.setContentsMargins(0, 8, 0, 0)
         categories_layout.setSpacing(12)
         categories_layout.addWidget(QLabel("Resumo por categoria", objectName="SectionTitle"))
         categories_layout.addWidget(QLabel(
-            "Cada categoria separada, independente do seletor acima. O resumo completo de "
-            "cada boss fica na página Bosses.", objectName="CardHint"))
-        categories_layout.addWidget(ResponsiveGrid(list(self.category_cards.values()),
-                                                   min_item_width=200, max_columns=5))
+            "Independente do seletor acima. O resumo completo de cada boss fica em Sessões.",
+            objectName="CardHint"))
+        categories_layout.addWidget(self._categories_grid)
 
         self.charts: list[tuple[ChartSpec, HuntSeriesChart]] = []
         for spec in DASHBOARD_CHARTS:
@@ -149,9 +159,9 @@ class DashboardPage(QWidget):
         layout.setSpacing(18)
         layout.addWidget(self._header)
         layout.addLayout(self.filter_slot)
-        layout.addWidget(ResponsiveGrid(list(self._cards.values())))
+        layout.addWidget(self._cards_section)
         layout.addWidget(self._empty_hint)
-        layout.addWidget(categories_section)
+        layout.addWidget(self._categories_section)
         layout.addWidget(self._charts_section)
         layout.addStretch(1)
 
@@ -174,6 +184,7 @@ class DashboardPage(QWidget):
         self._show_cards(stats, filtered, singular, plural)
         self._show_categories()
 
+        self._cards_section.setVisible(stats.hunt_count > 0)
         enough = stats.hunt_count >= MIN_HUNTS_FOR_CHARTS
         self._charts_section.setVisible(enough)
         if enough:
@@ -188,8 +199,8 @@ class DashboardPage(QWidget):
         if stats.hunt_count == 0:
             self._empty_hint.setText(
                 f"Nenhuma {singular} corresponde aos filtros." if filtered
-                else f"Nenhuma {singular} nesta categoria ainda. Use Hunts → Importar JSON/TSV "
-                     "(ou importe com uma aba da página Bosses aberta) para começar.")
+                else f"Nenhuma {singular} nesta categoria ainda. Clique em Importar, na barra "
+                     "lateral, ou arraste arquivos .json/.tsv para a janela.")
         elif not enough:
             self._empty_hint.setText(f"Os gráficos aparecem a partir de 2 {plural}.")
         self._empty_hint.setVisible(not enough)
@@ -223,14 +234,19 @@ class DashboardPage(QWidget):
 
     def _show_categories(self) -> None:
         """Profit, sessões, kills, tempo e Profit/h de cada categoria (com o filtro)."""
+        with_sessions = []
         for category, card in self.category_cards.items():
             stats = self._statistics.overview(self._filters.current.scoped(category))
             if not stats.hunt_count:
                 card.set_value("—", "Nenhuma sessão")
                 continue
+            with_sessions.append(card)
             card.set_value(
                 format_money(stats.total_profit),
                 f"{format_number(stats.hunt_count)} sessão(ões) · "
                 f"{format_number(stats.total_kills)} kills · "
                 f"{format_duration_long(stats.total_duration_seconds)}\n"
                 f"Profit/h: {format_money(stats.profit_per_total_hour)}")
+        self._categories_grid.show_only(with_sessions)
+        # Uma categoria só já é o que os cards acima mostram.
+        self._categories_section.setVisible(len(with_sessions) > 1)

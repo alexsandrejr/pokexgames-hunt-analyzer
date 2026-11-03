@@ -15,7 +15,8 @@ class PageHeader(QWidget):
         super().__init__(parent)
         texts = QVBoxLayout()
         texts.setSpacing(2)
-        texts.addWidget(QLabel(title, objectName="PageTitle"))
+        self.title = QLabel(title, objectName="PageTitle")
+        texts.addWidget(self.title)
         self.subtitle = QLabel(subtitle, objectName="PageSubtitle")
         self.subtitle.setVisible(bool(subtitle))
         texts.addWidget(self.subtitle)
@@ -30,6 +31,9 @@ class PageHeader(QWidget):
 
     def add_action(self, widget: QWidget) -> None:
         self.actions.addWidget(widget)
+
+    def set_title(self, text: str) -> None:
+        self.title.setText(text)
 
     def set_subtitle(self, text: str) -> None:
         self.subtitle.setText(text)

@@ -38,7 +38,7 @@ UI (PySide6) → Services → Repositories → SQLAlchemy → SQLite
 
 - `app/services/`: regras de negócio, sem importar Qt. Lançam `ValueError` com mensagem em português, pronta para mostrar ao usuário.
 - `app/database/repositories.py`: todo o SQL fica aqui, com uma classe por área. Ao adicionar uma classe, coloque-a **no fim do arquivo** e confira onde termina a anterior, pois os métodos de uma classe longa continuam depois do trecho visível.
-- `app/ui/`: uma pasta por página. Uma página nova entra em `NAV_ITEMS` e `self.pages` (`main_window.py`) e expõe `refresh()`, chamado sempre que ela aparece.
+- `app/ui/`: uma pasta por página. Uma página nova entra em `self.pages` (`main_window.py`) e expõe `refresh()`, chamado sempre que ela aparece. `NAV_ITEMS` tem só as seções da barra lateral; a página entra também em `SECTION_PAGES`, se ficar na sub-navegação de uma seção. `show_page` aceita seção, página ou `boss_key(categoria)`.
 - `resources/icons/`: SVGs desenhados com o traço `#aeb6c4`, que `icons.py` troca pela cor do tema.
 
 ## Convenções
@@ -47,7 +47,8 @@ UI (PySide6) → Services → Repositories → SQLAlchemy → SQLite
 - **Fração x porcentagem:** aproveitamentos são guardados como fração de 0 a 1, e só a interface fala em %.
 - **Números digitados:** `parse_user_number` aceita `14k`, `1,2kk` e `1.000.000`. Para preencher um campo, use `format_plain`, que devolve um texto que o parser lê de volta no formato ativo. Para exibir, use `format_number` e `format_money`.
 - **Tabelas:** use `RecordTable` + `Column`, com `fit_contents=True` nas colunas que não podem ser cortadas.
-- **Cores:** use `COLORS` e o QSS de `theme.py`, com `objectName` para estilizar. O dono usa o tema claro; o padrão é o escuro.
+- **Cores:** use `COLORS` e o QSS de `theme.py`, com `objectName` para estilizar. O dono usa o tema claro; o padrão é o escuro. Vermelho e verde indicam prejuízo e lucro, então a cor forte fica nas etiquetas de elemento (`ELEMENT_COLORS`), iguais nos dois temas. Só o botão principal usa `primary`, escolhido pelo contraste com o texto branco.
+- **Ações de lista:** as que dependem de seleção só aparecem quando podem ser usadas. Nos testes, confira `isHidden()`, não `isVisible()`.
 - **Diálogos com validação:** valide em `accept()`, mostre o erro em um `ErrorLabel` e mantenha o diálogo aberto. Com edição dentro de tabela, deixe o botão Salvar sempre habilitado: é o foco nele que grava a célula em edição.
 - **Testes de interface:** definem `QT_QPA_PLATFORM=offscreen` antes de importar o Qt e guardam o diálogo em uma variável, senão o Python o destrói no meio do teste.
 - **Quebras de linha:** o repositório guarda LF e a cópia de trabalho usa CRLF (`core.autocrlf`). Ao editar por script, preserve as quebras de linha para não gerar um diff do arquivo inteiro.
@@ -68,7 +69,7 @@ Código: `app/services/dps_calculator.py` (conta pura), `dps_service.py` (cadast
 **Objetivo:** escolher o melhor pokémon para um boss com tempo limite (ex.: 7 min). O dono usa **um único pokémon a batalha inteira**, por isso o ranking é individual e não há revezamento.
 
 **Abas:**
-- **Ranking:** mostra só os pokémons anexados ao boss selecionado. Tem os seletores de boss e Calcular por (Efetividade, Dummy ou Dano real; o de dummy só aparece na opção Dummy), e Adicionar e Remover do boss; o duplo clique abre a edição.
+- **Ranking:** mostra só os pokémons anexados ao boss selecionado. Tem os seletores de boss e Calcular por (Efetividade, Dummy ou Dano real; o de dummy só aparece na opção Dummy), Gerenciar bosses e Adicionar pokémon. Editar e Remover ficam ao lado do pokémon selecionado; o duplo clique também abre a edição.
 - **Pokémons:** mostra o cadastro inteiro. Tem Novo, Editar, Testes, Duplicar e Excluir. Dano total e DPS ficam só no Ranking, porque valem para o boss em que o pokémon está anexado; aqui, o seletor Ver dano no dummy mostra só o dano de cada skill.
 
 **Decisões do dono e o motivo:**
@@ -118,12 +119,13 @@ window.grab().save("captura.png")
 ## Estado em 2026-11-03
 
 **Código**
-- Versão 1.4.0 com commit local e sem push, com a página DPS (abas Ranking e Pokémons), os testes e o seletor Calcular por (Efetividade, Dummy ou Dano real). Confira com `git status` e `git log` antes de continuar.
-- O `.exe` e o `.zip` em `dist/` ainda são da 1.3.0.
+- A 1.4.0 (página DPS) não teve release próprio: entrou no da 1.5.0.
+- A 1.5.0 (redesign) está publicada no GitHub, com o `.zip`: 5 itens na barra lateral (Início, Sessões, Análise, DPS e Configurações), botão Importar fixo no lugar do menu do topo, sub-navegação, ações que só aparecem com seleção e etiquetas com as cores dos tipos. As páginas internas continuam separadas no `QStackedWidget`, e só a navegação mudou.
+- Revisão do DPS (2026-11-03): nenhuma fórmula errada. Sugestões aguardando o dono: avisar testes muito diferentes entre si, marcar empates e fichas incompletas no ranking, avisar pokémon sem básico, aceitar dano 0 dentro do boss e comparar a estimativa com o dano real.
 
 **Banco real**
-- `data/hunts.db` está na versão 8, com 3 sessões, o boss Padrão e 1 pokémon (Steelix, com testes no dummy Neutro), que não está anexado ao boss. O dono excluiu de propósito os 8 monstros do colega.
-- A próxima abertura do app aplica a migração 9, com backup antes: o boss fica em Dummy, sem mudar o ranking. Numa cópia, a migração manteve as sessões, o pokémon e os testes.
+- `data/hunts.db` está na versão 9: o dono abriu o app em 2026-11-03, e o backup de antes da migração está em `data/backups/`. Tem 3 sessões, os bosses Padrão e TESTE e 1 pokémon (Steelix, com testes), anexado a um boss. O dono excluiu de propósito os 8 monstros do colega.
+- O redesign 1.5.0 não mudou o banco nem criou migração.
 
 **Perguntas em aberto**
 - O dummy Neutro vale mesmo 1x? O cálculo por Efetividade depende disso. Falta o dono testar um golpe no Neutro e em um dummy Super Efetivo.
@@ -134,4 +136,4 @@ window.grab().save("captura.png")
 - Remover uma skill no cadastro apaga os testes dela ao salvar, sem aviso.
 - Desmarcar "Tem ataque básico" esconde os testes do básico sem apagá-los.
 - Na janela mínima, a tabela de detalhamento do Ranking precisa de rolagem horizontal para mostrar Dano total e %.
-- A setinha dos `QComboBox` tem um cantinho escuro em todas as páginas, porque o tema não estiliza `::drop-down`. Não foi corrigido.
+- Na janela mínima, a lista Todas precisa de rolagem horizontal para mostrar as últimas colunas. Ela não mostra Supplies/h, para caber em 1320 px.

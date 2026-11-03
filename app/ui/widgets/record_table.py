@@ -132,7 +132,7 @@ class RecordTable(QTableView):
         self.setModel(self.proxy)
 
         self.setSortingEnabled(True)
-        self.setAlternatingRowColors(True)
+        self.setAlternatingRowColors(False)
         self.setShowGrid(False)
         self.setWordWrap(False)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)

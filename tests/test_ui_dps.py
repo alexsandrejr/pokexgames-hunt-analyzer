@@ -43,7 +43,7 @@ from app.ui.dps.dps_dialogs import (  # noqa: E402
 )
 from app.ui.dps.dps_tests_dialog import AVERAGE_COLUMN, DamageTestsDialog  # noqa: E402
 from app.ui.main_window import MainWindow  # noqa: E402
-from app.ui.theme import apply_theme  # noqa: E402
+from app.ui.theme import ELEMENT_COLORS, apply_theme  # noqa: E402
 from tests.helpers import memory_database  # noqa: E402
 
 
@@ -442,8 +442,11 @@ class DpsPageTests(DpsTestCase):
         self.assertEqual(self.ranking.source_combo.currentData(), DamageSource.DUMMY)
         self.assertFalse(self.ranking.dummy_combo.isHidden())
         self.assertEqual(self.ranking._detail_summary.text(), "Dano total: 42.000 · DPS: 100")
-        self.assertEqual(self.ranking._boss_summary.text(),
-                         "Elemento: Water · Super Efetivo (2x): Ground")
+        summary = self.ranking._boss_summary.text()
+        self.assertIn("Elemento", summary)
+        self.assertIn(ELEMENT_COLORS["Water"], summary)
+        self.assertIn("Super&nbsp;Efetivo&nbsp;2x", summary)
+        self.assertIn(ELEMENT_COLORS["Ground"], summary)
 
         self.choose_source(DamageSource.EFFECTIVENESS)
         self.assertTrue(self.ranking.dummy_combo.isHidden())

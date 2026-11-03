@@ -40,6 +40,7 @@ from app.ui.dps.dps_dialogs import (
 )
 from app.ui.dps.dps_pokemons_tab import PokemonsTab, announce
 from app.ui.icons import icon
+from app.ui.theme import COLORS, ELEMENT_COLORS
 from app.ui.widgets.elided_label import ElidedLabel
 from app.ui.widgets.page import PAGE_MARGINS, EmptyState, PageHeader
 from app.ui.widgets.record_table import Column, RecordTable
@@ -49,7 +50,7 @@ BAR_RESOLUTION = 1000
 
 EMPTY_TITLE = "Nenhum pokémon neste boss"
 EMPTY_MESSAGE = "Use “Adicionar” para anexar os pokémons cadastrados na aba Pokémons."
-NO_WEAKNESSES_WARNING = ("Marque as fraquezas deste boss em Bosses → Editar boss: por enquanto, "
+NO_WEAKNESSES_WARNING = ("Marque as fraquezas em Gerenciar bosses → Editar boss: por enquanto, "
                          "todos os ataques contam como Normal (1x).")
 
 
@@ -147,8 +148,9 @@ class RankingTab(QWidget):
         self._stack.addWidget(self._build_empty_view())
         self._stack.addWidget(self._build_results_view())
 
-        self._boss_summary = QLabel(objectName="MutedLabel")
+        self._boss_summary = QLabel()
         self._boss_summary.setWordWrap(True)
+        self._boss_summary.setTextFormat(Qt.TextFormat.RichText)
         self._boss_warning = QLabel(NO_WEAKNESSES_WARNING, objectName="WarningLabel")
         self._boss_warning.setWordWrap(True)
 
@@ -188,15 +190,12 @@ class RankingTab(QWidget):
         menu.addAction("Novo boss…", self.new_boss)
         menu.addAction("Editar boss…", self.edit_boss)
         self._delete_boss_action: QAction = menu.addAction("Excluir boss…", self.delete_boss)
-        bosses_button = QPushButton(icon("bosses"), "  Bosses")
+        bosses_button = QPushButton(icon("bosses"), "  Gerenciar bosses  ")
         bosses_button.setMenu(menu)
 
-        self._add_button = QPushButton("Adicionar", objectName="PrimaryButton")
+        self._add_button = QPushButton("Adicionar pokémon", objectName="PrimaryButton")
         self._add_button.setToolTip("Marcar quais pokémons podem lutar contra este boss")
         self._add_button.clicked.connect(self.choose_boss_pokemons)
-        self._remove_button = QPushButton(icon("close"), "  Remover")
-        self._remove_button.setToolTip("Tirar o pokémon deste boss, sem apagar o cadastro")
-        self._remove_button.clicked.connect(self.remove_selected)
 
         # Em duas linhas: em uma só, os seletores não cabem na janela mínima.
         boss_row = QHBoxLayout()
@@ -205,7 +204,6 @@ class RankingTab(QWidget):
         boss_row.addWidget(self.boss_combo)
         boss_row.addWidget(bosses_button)
         boss_row.addStretch(1)
-        boss_row.addWidget(self._remove_button)
         boss_row.addWidget(self._add_button)
 
         source_row = QHBoxLayout()
@@ -243,10 +241,25 @@ class RankingTab(QWidget):
         self._lines_table = RecordTable(self._line_columns())
         self._lines_table.sortByColumn(2, Qt.SortOrder.DescendingOrder)
 
+        edit_button = QPushButton(icon("open"), "  Editar")
+        edit_button.setToolTip("Editar o cadastro deste pokémon")
+        edit_button.clicked.connect(self.edit_selected)
+        self._remove_button = QPushButton(icon("close"), "  Remover")
+        self._remove_button.setToolTip("Tirar o pokémon deste boss, sem apagar o cadastro")
+        self._remove_button.clicked.connect(self.remove_selected)
+        titles = QVBoxLayout()
+        titles.setSpacing(2)
+        titles.addWidget(self._detail_name)
+        titles.addWidget(self._detail_summary)
+        heading = QHBoxLayout()
+        heading.setSpacing(8)
+        heading.addLayout(titles, 1)
+        heading.addWidget(edit_button)
+        heading.addWidget(self._remove_button)
+
         detail = QVBoxLayout()
         detail.setSpacing(8)
-        detail.addWidget(self._detail_name)
-        detail.addWidget(self._detail_summary)
+        detail.addLayout(heading)
         detail.addWidget(self._detail_note)
         detail.addWidget(self._detail_warning)
         detail.addWidget(self._lines_table, 1)
@@ -478,16 +491,29 @@ class RankingTab(QWidget):
             self.data_changed.emit()
 
 
+def _element_tag(element: Element) -> str:
+    """Etiqueta com a cor do tipo; o texto escuro ou branco é o que contrasta mais."""
+    color = ELEMENT_COLORS[element.label]
+    red, green, blue = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+    text = "#15192a" if 0.299 * red + 0.587 * green + 0.114 * blue > 140 else "#ffffff"
+    return (f'<span style="background-color:{color}; color:{text};">'
+            f"&nbsp;{element.label}&nbsp;</span>")
+
+
 def _boss_summary_text(boss: BossData) -> str:
     """Elementos do boss e os ataques fora do Normal, agrupados como no jogo."""
-    parts = []
+    groups = []
     if boss.elements:
-        parts.append(f"Elemento: {' / '.join(element.label for element in boss.elements)}")
+        groups.append(("Elemento", boss.elements))
     for level in EffectivenessLevel:
-        names = [element.label for element in Element if boss.effectiveness.get(element) is level]
-        if names:
-            parts.append(f"{level.label} ({format_plain(level.multiplier)}x): {', '.join(names)}")
-    return " · ".join(parts)
+        elements = [element for element in Element if boss.effectiveness.get(element) is level]
+        if elements:
+            groups.append((f"{level.label} {format_plain(level.multiplier)}x".replace(
+                " ", "&nbsp;"), elements))
+    return "&nbsp;&nbsp;&nbsp; ".join(
+        f'<span style="color:{COLORS["muted"]};">{title}</span>&nbsp;'
+        + "&nbsp;".join(_element_tag(element) for element in elements)
+        for title, elements in groups)
 
 
 def _format_time(seconds: int) -> str:

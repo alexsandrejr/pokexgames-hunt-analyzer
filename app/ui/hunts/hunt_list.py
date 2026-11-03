@@ -1,6 +1,6 @@
 """Lista de sessões de uma categoria: busca, detalhes, comparação, mudança de categoria e exclusão.
 
-Usada pela página Hunts e por cada aba da página Bosses.
+Usada pelas páginas da seção Sessões: Todas, Hunts e cada tipo de boss.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ from app.ui.filters.filter_controller import FilterController
 from app.ui.hunts.comparison_dialog import ComparisonDialog
 from app.ui.hunts.hunt_details import HuntDetailsDialog, show_hunt_details
 from app.ui.icons import icon
-from app.ui.import_controller import ImportController
 from app.ui.theme import COLORS
 from app.ui.widgets.export_button import ExportButton
 from app.ui.widgets.page import EmptyState
@@ -78,32 +77,25 @@ class ListTexts:
     empty_message: str
 
 
-IMPORT_HINT = ("Arraste arquivos .json/.tsv ou pastas para esta janela, use “Importar JSON/TSV” "
-               "ou “Importar pasta”, ou cole o texto com “Colar JSON/TSV”.")
+IMPORT_HINT = "Clique em Importar, na barra lateral, ou arraste arquivos .json/.tsv para a janela."
 
 HUNT_TEXTS = ListTexts("Hunt", "Hunts", "Nenhuma Hunt importada", IMPORT_HINT)
+ALL_SESSIONS_TEXTS = ListTexts("sessão", "sessões", "Nenhuma sessão importada", IMPORT_HINT)
 
-
-def import_buttons(importer: ImportController) -> list[QPushButton]:
-    """Botões "Colar", "Importar pasta" e "Importar" dos cabeçalhos de página."""
-    paste_button = QPushButton(icon("paste"), "  Colar JSON/TSV")
-    paste_button.setToolTip("Colar o texto do JSON ou TSV (Ctrl+Shift+V)")
-    paste_button.clicked.connect(importer.paste_and_import)
-    folder_button = QPushButton(icon("folder"), "  Importar pasta")
-    folder_button.setToolTip("Importar todos os .json e .tsv de uma pasta (Ctrl+Shift+I)")
-    folder_button.clicked.connect(importer.choose_folder_and_import)
-    import_button = QPushButton(icon("import"), "  Importar JSON/TSV")
-    import_button.setObjectName("PrimaryButton")
-    import_button.setToolTip("Selecionar arquivos .json ou .tsv (Ctrl+I)")
-    import_button.clicked.connect(importer.choose_and_import)
-    return [paste_button, folder_button, import_button]
+ALL_SESSIONS_COLUMNS: list[Column[HuntSummary]] = [
+    HUNT_COLUMNS[0],
+    Column("Categoria", lambda h: Category.from_value(h.category).label, fit_contents=True),
+    *(column for column in HUNT_COLUMNS[1:] if column.title != "Supplies/h"),
+]
 
 
 class HuntListView(QWidget):
     totals_changed = Signal(int)  # sessões da categoria no banco (sem filtros)
 
-    def __init__(self, service: HuntService, filters: FilterController, category: Category,
-                 texts: ListTexts, parent: QWidget | None = None) -> None:
+    def __init__(self, service: HuntService, filters: FilterController,
+                 category: Category | None, texts: ListTexts,
+                 parent: QWidget | None = None) -> None:
+        """Sem ``category``, a lista mostra as sessões de todas as categorias."""
         super().__init__(parent)
         self._service = service
         self._filters = filters
@@ -112,7 +104,7 @@ class HuntListView(QWidget):
         self._total = 0  # sessões que passam no filtro
         self._total_all = 0  # sessões da categoria no banco
 
-        self._table = RecordTable(HUNT_COLUMNS)
+        self._table = RecordTable(HUNT_COLUMNS if category else ALL_SESSIONS_COLUMNS)
         self._table.doubleClicked.connect(self._open_index)
         self._table.selectionModel().selectionChanged.connect(self._update_buttons)
         self._table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
@@ -140,14 +132,14 @@ class HuntListView(QWidget):
         self._search.setPlaceholderText("Pesquisar por data, player, sessão…")
         self._search.addAction(icon("search"), QLineEdit.ActionPosition.LeadingPosition)
         self._search.setClearButtonEnabled(True)
-        self._search.setMaximumWidth(360)
+        self._search.setMinimumWidth(130)
+        self._search.setMaximumWidth(300)
         self._search.textChanged.connect(self._on_search)
 
+        self._selection_label = QLabel(objectName="SelectionLabel")
         self._open_button = QPushButton(icon("open"), "  Detalhes")
         self._open_button.clicked.connect(self.open_selected)
         self._compare_button = QPushButton(icon("compare"), "  Comparar")
-        self._compare_button.setToolTip(
-            f"Selecione 2 ou mais {self._texts.plural} (Ctrl+clique) para comparar")
         self._compare_button.clicked.connect(self.compare_selected)
         self._move_button = QPushButton(icon("folder"), "  Mover")
         self._move_button.setToolTip("Mover as sessões selecionadas para outra categoria "
@@ -163,34 +155,38 @@ class HuntListView(QWidget):
         self._delete_button = QPushButton(icon("trash"), "  Excluir")
         self._delete_button.setObjectName("DangerButton")
         self._delete_button.clicked.connect(self.delete_selected)
-        refresh_button = QPushButton(icon("refresh"), "  Atualizar")
-        refresh_button.clicked.connect(self.refresh)
         self._count_label = QLabel(objectName="MutedLabel")
+        self._count_label.setToolTip("Dê duplo clique em uma linha para abrir os detalhes.\n"
+                                     "Use Ctrl+clique para selecionar mais de uma.")
 
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
         toolbar.addWidget(self._search, 1)
         toolbar.addWidget(self._count_label)
         toolbar.addStretch(1)
+        toolbar.addWidget(self._selection_label)
         toolbar.addWidget(self._open_button)
         toolbar.addWidget(self._compare_button)
         toolbar.addWidget(self._move_button)
         toolbar.addWidget(self._delete_button)
         toolbar.addWidget(self.export_button)
-        toolbar.addWidget(refresh_button)
         return toolbar
 
     # ----------------------------------------------------------------- dados
 
     def scoped_filter(self) -> HuntFilter:
         """Filtro do usuário restrito à categoria da lista."""
-        return self._filters.current.scoped(self.category)
+        return self._filters.current.scoped(*self._categories)
+
+    @property
+    def _categories(self) -> tuple[Category, ...]:
+        return (self.category,) if self.category else ()
 
     def refresh(self) -> None:
         selected = {hunt.id for hunt in self._table.selected_records()}
         hunts = self._service.list_hunts(self.scoped_filter())
         self._total = len(hunts)
-        self._total_all = self._service.count_hunts(EMPTY_FILTER.scoped(self.category))
+        self._total_all = self._service.count_hunts(EMPTY_FILTER.scoped(*self._categories))
         self._table.set_records(hunts)
         self._stack.setCurrentIndex(1 if hunts else (2 if self._total_all else 0))
         self.select_hunts(selected)
@@ -232,9 +228,17 @@ class HuntListView(QWidget):
 
     def _update_buttons(self) -> None:
         count = len(self._table.selectionModel().selectedRows())
+        # As ações sobre a seleção só aparecem quando podem ser usadas.
+        self._selection_label.setText(f"{count} selecionada(s)" if count > 1 else "")
+        self._selection_label.setVisible(count > 1)
+        self._count_label.setVisible(count == 0)  # abre espaço para as ações na janela mínima
+        self._open_button.setVisible(count == 1)
         self._open_button.setEnabled(count == 1)
+        self._compare_button.setVisible(count >= 2)
         self._compare_button.setEnabled(count >= 2)
+        self._move_button.setVisible(count > 0)
         self._move_button.setEnabled(count > 0)
+        self._delete_button.setVisible(count > 0)
         self._delete_button.setEnabled(count > 0)
         self.export_button.setEnabled(self._table.visible_row_count() > 0)
 
@@ -269,8 +273,9 @@ class HuntListView(QWidget):
         """As sessões visíveis (filtro + pesquisa), na ordem exibida na tabela."""
         ids = [hunt.id for hunt in self._table.visible_records()]
         by_id = {hunt.id: hunt for hunt in self._service.get_summaries(ids)}
+        title = self.category.plural if self.category else "Sessões"
         return hunts_document([by_id[i] for i in ids if i in by_id],
-                              self._filters.current.describe(), title=self.category.plural)
+                              self._filters.current.describe(), title=title)
 
     def _show_status(self, text: str) -> None:
         window = self.window()

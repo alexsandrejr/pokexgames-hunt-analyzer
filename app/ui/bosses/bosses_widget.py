@@ -1,8 +1,9 @@
-"""Página Bosses: uma aba por tipo de boss (Rifts, Energia Vermelha, Energia Azul, Terrors).
+"""Tipos de boss da seção Sessões (Rifts, Energia Vermelha, Energia Azul, Terrors).
 
-Cada aba tem um "Resumo" (cards, gráficos, bosses, drops e dano por elemento) e as
-"Sessões" (a mesma lista da página Hunts, restrita à categoria). Importar com uma
-aba aberta grava as sessões naquela categoria (ver ``MainWindow._import_category``).
+Cada tipo tem um "Resumo" (cards, gráficos, bosses, drops e dano por elemento) e a
+"Lista" (a mesma lista de Hunts, restrita à categoria). A troca de tipo fica na
+sub-navegação da janela. Importar com um tipo aberto grava as sessões nele (ver
+``MainWindow._import_category``).
 """
 
 from __future__ import annotations
@@ -21,8 +22,7 @@ from app.services.statistics_service import ElementDamage, OverviewStats, Statis
 from app.ui.charts.charts import HuntSeriesChart
 from app.ui.dashboard.dashboard_widget import ChartSpec, chart_points, chronological
 from app.ui.filters.filter_controller import FilterController
-from app.ui.hunts.hunt_list import IMPORT_HINT, HuntListView, ListTexts, import_buttons
-from app.ui.import_controller import ImportController
+from app.ui.hunts.hunt_list import IMPORT_HINT, HuntListView, ListTexts
 from app.ui.widgets.cards import ResponsiveGrid, StatCard
 from app.ui.widgets.page import PAGE_MARGINS, PageHeader
 from app.ui.widgets.record_table import Column, RecordTable
@@ -72,7 +72,7 @@ ELEMENT_COLUMNS: list[Column[ElementDamage]] = [
 
 def session_texts(category: Category) -> ListTexts:
     return ListTexts("sessão", "sessões", f"Nenhuma sessão de {category.plural}",
-                     f"Importe com esta aba aberta, ou selecione uma sessão em Hunts e use "
+                     f"Importe com este tipo aberto, ou selecione uma sessão em Hunts e use "
                      f"“Mover” → {category.plural}. {IMPORT_HINT}")
 
 
@@ -122,6 +122,7 @@ class BossSummaryView(QScrollArea):
             "experience": StatCard("Experience"),
             "damage": StatCard("Damage dealt/s"),
         }
+        self._cards_grid = ResponsiveGrid(list(self.cards.values()), min_item_width=160)
         self._empty_hint = QLabel(objectName="MutedLabel")
         self._empty_hint.setWordWrap(True)
 
@@ -146,9 +147,9 @@ class BossSummaryView(QScrollArea):
 
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(0, 16, 0, 16)
         layout.setSpacing(18)
-        layout.addWidget(ResponsiveGrid(list(self.cards.values())))
+        layout.addWidget(self._cards_grid)
         layout.addWidget(self._empty_hint)
         layout.addWidget(self._tables_section)
         layout.addWidget(self._charts_section)
@@ -162,6 +163,7 @@ class BossSummaryView(QScrollArea):
         self._show_cards(stats)
 
         has_sessions = stats.hunt_count > 0
+        self._cards_grid.setVisible(has_sessions)
         self._tables_section.setVisible(has_sessions)
         if has_sessions:
             for table, rows in (
@@ -182,8 +184,8 @@ class BossSummaryView(QScrollArea):
         if not has_sessions:
             self._empty_hint.setText(
                 "Nenhuma sessão corresponde aos filtros." if not self._filters.current.is_empty
-                else f"Nenhuma sessão de {self.category.plural} ainda. Importe com esta aba "
-                     f"aberta, ou mova uma sessão da página Hunts com “Mover”.")
+                else f"Nenhuma sessão de {self.category.plural} ainda. Clique em Importar com "
+                     f"este tipo aberto, ou mova uma sessão com “Mover”.")
         elif not enough:
             self._empty_hint.setText("Os gráficos aparecem a partir de 2 sessões.")
         self._empty_hint.setVisible(not enough)
@@ -210,7 +212,7 @@ class BossSummaryView(QScrollArea):
 
 
 class BossCategoryView(QWidget):
-    """Aba de uma categoria: "Resumo" e "Sessões".
+    """Um tipo de boss: "Resumo" e "Lista".
 
     O conteúdo (gráficos, tabelas) só é montado na primeira vez que a aba é exibida,
     para não atrasar a abertura da janela com quatro abas que talvez nem sejam usadas.
@@ -224,9 +226,9 @@ class BossCategoryView(QWidget):
         self._services = (hunts, statistics, filters, open_hunt)
         self._summary: BossSummaryView | None = None
         self._sessions: HuntListView | None = None
-        self.tabs = QTabWidget()
+        self.tabs = QTabWidget(objectName="CategoryTabs")
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(0, 12, 0, 0)
+        self._layout.setContentsMargins(0, 0, 0, 0)
 
     def _ensure_built(self) -> None:
         if self._summary is not None:
@@ -237,11 +239,11 @@ class BossCategoryView(QWidget):
                                       session_texts(self.category))
         sessions_page = QWidget()
         sessions_layout = QVBoxLayout(sessions_page)
-        sessions_layout.setContentsMargins(16, 16, 16, 16)
+        sessions_layout.setContentsMargins(0, 16, 0, 0)
         sessions_layout.addWidget(self._sessions)
 
         self.tabs.addTab(self._summary, "Resumo")
-        self.tabs.addTab(sessions_page, "Sessões")
+        self.tabs.addTab(sessions_page, "Lista")
         self.tabs.currentChanged.connect(lambda _index: self.refresh())
         self._layout.addWidget(self.tabs)
         self.tabs.show()  # sem isso, a aba montada agora só aparece no próximo ciclo de eventos
@@ -264,7 +266,7 @@ class BossCategoryView(QWidget):
             self.sessions.refresh()
 
     def show_sessions(self, hunt_ids: Iterable[int] = ()) -> None:
-        """Abre "Sessões" com as sessões informadas selecionadas (ex.: recém-importadas)."""
+        """Abre a "Lista" com as sessões informadas selecionadas (ex.: recém-importadas)."""
         self._ensure_built()
         self.tabs.setCurrentIndex(1)
         self.sessions.refresh()
@@ -273,15 +275,12 @@ class BossCategoryView(QWidget):
 
 class BossesPage(QWidget):
     def __init__(self, hunts: HuntService, statistics: StatisticsService,
-                 importer: ImportController, filters: FilterController,
-                 open_hunt: Callable[[int], object], parent: QWidget | None = None) -> None:
+                 filters: FilterController, open_hunt: Callable[[int], object],
+                 parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._hunts = hunts
 
-        self._header = PageHeader(
-            "Bosses", "Importar com uma aba aberta grava as sessões naquele tipo de boss")
-        for button in import_buttons(importer):
-            self._header.add_action(button)
+        self._header = PageHeader("Bosses")
 
         self.views = {category: BossCategoryView(category, hunts, statistics, filters, open_hunt)
                       for category in BOSS_CATEGORIES}
@@ -289,6 +288,7 @@ class BossesPage(QWidget):
         for category, view in self.views.items():
             self.tabs.addTab(view, category.plural)
         self.tabs.currentChanged.connect(lambda _index: self.refresh())
+        self.tabs.tabBar().hide()  # o tipo é escolhido na sub-navegação da janela
 
         # O painel de filtros compartilhado é inserido aqui pela janela principal.
         self.filter_slot = QVBoxLayout()
@@ -313,12 +313,18 @@ class BossesPage(QWidget):
             count = self._hunts.count_hunts(EMPTY_FILTER.scoped(category))
             self.tabs.setTabText(index, f"{category.plural} ({count})" if count
                                  else category.plural)
+        plural = self.current_category.plural
+        self._header.set_title(plural)
+        self._header.set_subtitle(f"O que você importar agora entra em {plural}")
         self.current_view.refresh()
 
-    def show_category(self, category: Category, hunt_ids: Iterable[int] = ()) -> None:
-        """Abre a aba da categoria em "Sessões", selecionando as sessões informadas."""
-        view = self.views[category]
+    def select_category(self, category: Category) -> None:
+        """Troca o tipo de boss exibido, sem recarregar os dados."""
         self.tabs.blockSignals(True)
-        self.tabs.setCurrentWidget(view)
+        self.tabs.setCurrentWidget(self.views[category])
         self.tabs.blockSignals(False)
-        view.show_sessions(hunt_ids)
+
+    def show_category(self, category: Category, hunt_ids: Iterable[int] = ()) -> None:
+        """Abre o tipo de boss na "Lista", selecionando as sessões informadas."""
+        self.select_category(category)
+        self.views[category].show_sessions(hunt_ids)

@@ -21,12 +21,21 @@ def icon(name: str) -> QIcon:
     return _themed_icon(name, active_theme())
 
 
+def white_icon(name: str) -> QIcon:
+    """O ícone em branco, para botões com fundo na cor de destaque."""
+    return _colored_icon(name, "#ffffff")
+
+
 @cache
 def _themed_icon(name: str, _theme: str) -> QIcon:
+    return _colored_icon(name, COLORS["icon"])
+
+
+def _colored_icon(name: str, color: str) -> QIcon:
     path = ICONS_DIR / f"{name}.svg"
     if not path.exists():
         return QIcon()
-    svg = path.read_text(encoding="utf-8").replace(SVG_ICON_COLOR, COLORS["icon"])
+    svg = path.read_text(encoding="utf-8").replace(SVG_ICON_COLOR, color)
     renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
     result = QIcon()
     for size in _SIZES:
