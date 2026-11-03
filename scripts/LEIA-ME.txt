@@ -37,6 +37,24 @@ vez, as próximas sessões do mesmo boss vão para a aba certa sozinhas. Se algo
 cair no lugar errado, selecione a sessão e use "Mover".
 
 
+DPS
+---
+A página DPS ajuda a escolher o melhor pokémon para um boss com tempo limite.
+Ela não usa as Hunts importadas: você cadastra tudo à mão.
+
+1. Na aba Pokémons, cadastre o pokémon e as skills. Depois, em "Testes", anote
+   o dano medido nos dummies do jogo ou dentro do boss.
+2. Na aba Ranking, escolha o boss e use "Adicionar" para marcar quem luta
+   contra ele.
+3. Em "Calcular por", escolha de onde vem o dano:
+   - Efetividade: teste no dummy Neutro x efetividade marcada no boss;
+   - Dummy: teste no dummy escolhido;
+   - Dano real: teste feito dentro do boss.
+
+O que não foi testado conta como 0 e aparece com um aviso. O resultado é uma
+estimativa pela média, sem simular a luta.
+
+
 PREÇOS DOS ITENS
 ----------------
 Na página Preços você define o seu próprio preço para qualquer item (aceita

@@ -8,13 +8,16 @@ sempre preservado em ``raw_json`` para que campos futuros do Analyzer não se pe
 ``ItemPrice`` guarda os preços personalizados dos itens (ver ``price_service``).
 ``ChatReward`` guarda as mensagens "Você recebeu:" adicionadas a uma sessão; os itens
 delas viram ``Drop`` ligados à mensagem (ver ``chat_rewards``).
+
+As tabelas ``dps_*`` são da página DPS (ver ``dps_service``) e não têm relação com as
+sessões importadas: os bosses de lá têm só nome e tempo limite.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy import Column, ForeignKey, Index, String, Table, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -183,3 +186,131 @@ class ChatReward(Base):
     @property
     def messages(self) -> list[str]:
         return [line for line in self.text.splitlines() if line.strip()]
+
+
+dps_boss_pokemons = Table(
+    "dps_boss_pokemons",
+    Base.metadata,
+    Column("boss_id", ForeignKey("dps_bosses.id", ondelete="CASCADE"), primary_key=True),
+    Column("pokemon_id", ForeignKey("dps_pokemons.id", ondelete="CASCADE"), primary_key=True,
+           index=True),
+)
+
+
+class DpsBoss(Base):
+    __tablename__ = "dps_bosses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    time_limit_seconds: Mapped[int]
+    # Dummy de onde vem o dano no ranking: "neutral" ou valor de ``Element``.
+    dummy: Mapped[str] = mapped_column(String(20), default="neutral", server_default="neutral")
+    # Valor de ``DamageSource``: como o ranking deste boss calcula o dano.
+    damage_source: Mapped[str] = mapped_column(String(20), default="dummy", server_default="dummy")
+    # Só informativos: o que entra na conta é ``effectiveness``. Valores de ``Element``.
+    element_1: Mapped[str | None] = mapped_column(String(20))
+    element_2: Mapped[str | None] = mapped_column(String(20))
+
+    pokemons: Mapped[list[DpsPokemon]] = relationship(
+        secondary=dps_boss_pokemons, back_populates="bosses", passive_deletes=True
+    )
+    effectiveness: Mapped[list[DpsBossEffectiveness]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True,
+    )
+
+
+class DpsBossEffectiveness(Base):
+    """Efetividade de um elemento de ataque contra o boss; sem linha, o ataque é Normal."""
+
+    __tablename__ = "dps_boss_effectiveness"
+
+    boss_id: Mapped[int] = mapped_column(
+        ForeignKey("dps_bosses.id", ondelete="CASCADE"), primary_key=True
+    )
+    element: Mapped[str] = mapped_column(String(20), primary_key=True)  # valor de ``Element``
+    level: Mapped[str] = mapped_column(String(20))  # valor de ``EffectivenessLevel``
+
+
+class DpsPokemon(Base):
+    __tablename__ = "dps_pokemons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    # Sem aproveitamento: o pokémon não tem ataque básico.
+    basic_efficiency: Mapped[float | None]
+    basic_element: Mapped[str | None] = mapped_column(String(20))  # valor de ``Element``
+
+    # Sem recarga: o pokémon não tem buff.
+    buff_cooldown: Mapped[float | None]
+    buff_basic_multiplier: Mapped[float | None]
+    buff_basic_duration: Mapped[float | None]
+    buff_next_spell_multiplier: Mapped[float | None]
+
+    skills: Mapped[list[DpsSkill]] = relationship(
+        back_populates="pokemon", cascade="all, delete-orphan", passive_deletes=True,
+        order_by="DpsSkill.position",
+    )
+    bosses: Mapped[list[DpsBoss]] = relationship(
+        secondary=dps_boss_pokemons, back_populates="pokemons", passive_deletes=True
+    )
+    damage_tests: Mapped[list[DpsDamageTest]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True, order_by="DpsDamageTest.id",
+    )
+
+
+class DpsSkill(Base):
+    __tablename__ = "dps_skills"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pokemon_id: Mapped[int] = mapped_column(
+        ForeignKey("dps_pokemons.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int]
+    name: Mapped[str] = mapped_column(String(200), default="")
+    shape: Mapped[str] = mapped_column(String(20))  # valor de ``SkillShape``
+    reach: Mapped[str] = mapped_column(String(20))  # valor de ``SkillReach``
+    cooldown: Mapped[float]
+    efficiency: Mapped[float]  # fração 0–1
+    element: Mapped[str | None] = mapped_column(String(20))  # valor de ``Element``
+
+    pokemon: Mapped[DpsPokemon] = relationship(back_populates="skills")
+
+
+class DpsDamageTest(Base):
+    """Até 3 danos medidos em um dummy ou boss, para uma skill ou para o ataque básico."""
+
+    __tablename__ = "dps_damage_tests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pokemon_id: Mapped[int] = mapped_column(
+        ForeignKey("dps_pokemons.id", ondelete="CASCADE"), index=True
+    )
+    # Sem skill: o teste é do ataque básico.
+    skill_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dps_skills.id", ondelete="CASCADE"), index=True
+    )
+    # "neutral", valor de ``Element`` ou "boss" (teste dentro do boss ``boss_id``).
+    dummy: Mapped[str] = mapped_column(String(20))
+    boss_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dps_bosses.id", ondelete="CASCADE"), index=True
+    )
+    damage_1: Mapped[int | None]
+    damage_2: Mapped[int | None]
+    damage_3: Mapped[int | None]
+
+
+class DpsSettings(Base):
+    """Linha única com os ajustes da página DPS (ficam nos backups, junto com os dados)."""
+
+    __tablename__ = "dps_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    basic_turn_seconds: Mapped[float]
+    target_melee_efficiency: Mapped[float]
+    default_efficiency: Mapped[float]
+    basic_efficiency: Mapped[float]
+    last_boss_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dps_bosses.id", ondelete="SET NULL")
+    )

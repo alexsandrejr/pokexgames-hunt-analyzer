@@ -83,6 +83,13 @@ def format_number(value: float | int | None, decimals: int = 0) -> str:
     return text.translate(_active_translation)
 
 
+def format_plain(value: float | int) -> str:
+    """Sem separador de milhar nem casas fixas: ``2.5`` → ``"2,5"``; ``8.0`` → ``"8"``."""
+    number = float(value)
+    text = str(int(number)) if number.is_integer() else str(number)
+    return text.replace(".", _active_format.decimal)
+
+
 def format_money(value: float | int | None) -> str:
     """Valores em dinheiro do jogo são exibidos sem casas decimais."""
     return format_number(value, decimals=0)

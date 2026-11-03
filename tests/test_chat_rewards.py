@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 from sqlalchemy import func, select, text  # noqa: E402
 
 from app.database.database import Database  # noqa: E402
+from app.database.migrations import LATEST_VERSION  # noqa: E402
 from app.database.models import ChatReward, Drop  # noqa: E402
 from app.services.chat_rewards import parse_chat_rewards, resolve_item_name  # noqa: E402
 from app.services.hunt_service import HuntService  # noqa: E402
@@ -236,7 +237,8 @@ class ChatRewardMigrationTests(unittest.TestCase):
 
             database = Database.from_path(path)
             try:
-                self.assertEqual([m.version for m in database.create_schema()], [5])
+                self.assertEqual([m.version for m in database.create_schema()],
+                                 list(range(5, LATEST_VERSION + 1)))
                 service = HuntService(database)
                 hunt_id = service.import_file(SAMPLE_BOSS_PATH).hunt_id
                 self.assertEqual(service.add_chat_rewards(hunt_id, BAG), 4)

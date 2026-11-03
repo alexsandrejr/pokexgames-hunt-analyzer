@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QStackedWid
 
 from app.services.backup_service import BackupService
 from app.services.categories import Category
+from app.services.dps_service import DpsService
 from app.services.entity_report import EntityKind
 from app.services.hunt_service import HuntService
 from app.services.price_service import PriceService
@@ -26,6 +27,7 @@ from app.services.settings_service import AppSettings, SettingsStore
 from app.services.statistics_service import StatisticsService
 from app.ui.bosses.bosses_widget import BossesPage
 from app.ui.dashboard.dashboard_widget import DashboardPage
+from app.ui.dps.dps_widget import DpsPage
 from app.ui.hunts.hunts_widget import HuntsPage
 from app.ui.filters.filter_controller import FilterController
 from app.ui.filters.filter_panel import FilterPanel
@@ -45,6 +47,7 @@ NAV_ITEMS = [
     NavItem("dashboard", "Dashboard", "dashboard"),
     NavItem("hunts", "Hunts", "hunts"),
     NavItem("bosses", "Bosses", "bosses"),
+    NavItem("dps", "DPS", "dps"),
     NavItem("reports", "Relatórios", "reports"),
     NavItem("items", "Itens", "items"),
     NavItem("enemies", "Inimigos", "enemies"),
@@ -59,7 +62,8 @@ class MainWindow(QMainWindow):
                  settings_store: SettingsStore | None = None,
                  settings: AppSettings | None = None,
                  restart: Callable[[], None] | None = None,
-                 price_service: PriceService | None = None) -> None:
+                 price_service: PriceService | None = None,
+                 dps_service: DpsService | None = None) -> None:
         super().__init__()
         self._restart = restart
         self.setWindowTitle(APP_NAME)
@@ -87,6 +91,7 @@ class MainWindow(QMainWindow):
             "dashboard": self.dashboard_page,
             "hunts": self.hunts_page,
             "bosses": self.bosses_page,
+            "dps": DpsPage(dps_service or DpsService(hunt_service.database)),
             "reports": self.reports_page,
             "items": EntityReportPage(
                 "Itens", "Drops e supplies ao longo das Hunts filtradas",

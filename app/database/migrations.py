@@ -26,6 +26,8 @@ class Migration:
     statements: tuple[str, ...] = ()
     # (tabela, coluna, tipo SQL) criadas antes dos ``statements``, se ainda não existirem.
     columns: tuple[tuple[str, str, str], ...] = ()
+    # (tabela, coluna) apagadas depois dos ``statements``, se ainda existirem.
+    dropped_columns: tuple[tuple[str, str], ...] = ()
 
 
 MIGRATIONS: tuple[Migration, ...] = (
@@ -59,6 +61,31 @@ MIGRATIONS: tuple[Migration, ...] = (
         ("drops", "chat_reward_id",
          "INTEGER REFERENCES chat_rewards (id) ON DELETE CASCADE"),
     )),
+    Migration(6, "Página DPS: boss inicial (tabelas criadas pelos modelos)", (
+        "INSERT INTO dps_bosses (name, time_limit_seconds) SELECT 'Padrão', 420 "
+        "WHERE NOT EXISTS (SELECT 1 FROM dps_bosses)",
+    )),
+    Migration(7, "Página DPS: elemento dos golpes (testes em dummies criados pelos modelos)",
+              columns=(
+        ("dps_skills", "element", "VARCHAR(20)"),
+        ("dps_pokemons", "basic_element", "VARCHAR(20)"),
+    )),
+    Migration(8, "Página DPS: o dano passa a vir dos testes, no dummy escolhido em cada boss",
+              columns=(
+        ("dps_bosses", "dummy", "VARCHAR(20) NOT NULL DEFAULT 'neutral'"),
+    ), dropped_columns=(
+        ("dps_skills", "damage"),
+        ("dps_pokemons", "basic_damage"),
+    )),
+    Migration(9, "Página DPS: origem do dano, elementos do boss e testes dentro do boss", (
+        "CREATE INDEX IF NOT EXISTS ix_dps_damage_tests_boss_id ON dps_damage_tests (boss_id)",
+    ), columns=(
+        ("dps_bosses", "damage_source", "VARCHAR(20) NOT NULL DEFAULT 'dummy'"),
+        ("dps_bosses", "element_1", "VARCHAR(20)"),
+        ("dps_bosses", "element_2", "VARCHAR(20)"),
+        ("dps_damage_tests", "boss_id",
+         "INTEGER REFERENCES dps_bosses (id) ON DELETE CASCADE"),
+    )),
 )
 
 LATEST_VERSION = MIGRATIONS[-1].version
@@ -90,6 +117,9 @@ def apply_migrations(connection: Connection) -> list[Migration]:
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
         for statement in migration.statements:
             connection.execute(text(statement))
+        for table, column in migration.dropped_columns:
+            if column in _column_names(connection, table):
+                connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
     if applied:
         # PRAGMA não aceita parâmetros; o valor vem de uma constante do código.
         connection.execute(text(f"PRAGMA user_version = {applied[-1].version:d}"))

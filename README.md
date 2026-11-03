@@ -4,7 +4,7 @@ Aplicação desktop para **armazenar, organizar e analisar** as sessões de Hunt
 
 Cada arquivo importado vira um **registro histórico permanente** no banco SQLite local, com seus inimigos derrotados, drops e supplies em tabelas relacionadas. O JSON original é sempre preservado por completo (um TSV é guardado já convertido para JSON, com todas as seções), então campos novos que o Analyzer venha a adicionar não se perdem.
 
-> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Dashboard com gráficos, Relatórios, relatórios por item e por inimigo, página Bosses (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), recompensas do chat ("Você recebeu:") somadas às sessões, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
+> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Dashboard com gráficos, Relatórios, relatórios por item e por inimigo, página Bosses (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), recompensas do chat ("Você recebeu:") somadas às sessões, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), página DPS (ranking de pokémons por boss com tempo limite, calculado por Efetividade, Dummy ou Dano real), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
 
 ## Baixar
 
@@ -167,6 +167,39 @@ Na prévia:
 
 Os itens viram drops da sessão com **Origem: Chat** na aba *Drops*, e **Raw gains** e **Profit** (e as taxas por hora) sobem com o valor deles. Eles entram em Relatórios, Itens, filtros e na página Preços como qualquer drop. O JSON original não é alterado. **Remover do chat** tira todos os drops vindos do chat e volta os totais.
 
+## DPS
+
+A página **DPS** compara o dano dos pokémons em bosses com tempo limite. Ela não usa as sessões importadas: tudo é cadastrado à mão e fica no mesmo banco, então entra nos backups.
+
+- **Bosses**: cada boss tem nome e tempo limite (o boss **Padrão**, de 7 minutos, já vem criado). O seletor da aba **Ranking** escolhe o boss, e o app lembra o último usado. Em **Bosses → Novo/Editar boss** também ficam os elementos dele (só informativos) e a efetividade de cada ataque contra ele, copiada da Pokédex do jogo; o que não for marcado conta como Normal. **Adicionar** abre a lista para marcar quem pode lutar contra ele, e **Remover** tira o pokémon sem apagar o cadastro.
+- **Calcular por**: seletor do Ranking, salvo em cada boss, que define de onde vem o dano de cada skill e do básico. Todos os pokémons do boss usam a mesma opção. Veja a tabela abaixo.
+- **Pokémons**: a aba **Pokémons** lista todos os cadastrados, com pesquisa e as skills do selecionado, e é onde ficam **Novo**, **Editar**, **Duplicar** e **Excluir**. Um pokémon novo nasce sem boss. No Ranking, o duplo clique também abre a edição. O cadastro tem nome, observação, ataque básico, buff e skills, com elemento opcional no básico e em cada skill (usado só no cálculo por Efetividade). O dano não é digitado no cadastro: lá ele só aparece, conforme o dummy escolhido em **Ver dano no dummy**. Cada skill tem forma (Área ou Target), alcance (Melee ou Ranged), dano, recarga e aproveitamento. **Duplicar** serve para comparar builds, ou o mesmo pokémon com danos diferentes em dois bosses.
+- **Ranking**: só os pokémons anexados ao boss, com dano total e DPS no tempo limite, com barra proporcional ao 1º colocado. À direita aparece quanto cada skill, o básico e o buff somam ao total.
+- **Testes**: na aba **Pokémons**, o botão **Testes** registra os danos medidos nos dummies do jogo (Neutro ou um dos 18 elementos) e dentro dos bosses cadastrados (**Boss: nome**). Cada skill e o ataque básico podem ter um teste por dummy e por boss, com até 3 danos e a média dos preenchidos. O que não foi testado onde o boss pede conta como **0** e aparece com o aviso "sem teste", sem usar outro teste como substituto. Excluir um boss apaga os testes feitos nele. Tudo é gravado ao trocar de skill e ao fechar a janela. **Duplicar** copia os testes, e remover uma skill apaga os dela.
+- **Ajustes**: turno do ataque básico (2,5 s, vale para todos os pokémons) e os aproveitamentos sugeridos em novos cadastros (Target + Melee 75%, demais skills 100%, ataque básico 75%).
+
+De onde vem o dano, conforme o **Calcular por** do boss:
+
+| Opção | Dano usado | Sem dado |
+|---|---|---|
+| **Efetividade** | teste no dummy Neutro × multiplicador do elemento do golpe contra o boss | golpe sem teste no Neutro ou sem elemento conta como 0, com aviso |
+| **Dummy** (padrão) | teste no dummy escolhido no boss | sem teste nesse dummy conta como 0, com aviso |
+| **Dano real** | teste feito dentro daquele boss, sem multiplicador (ele já inclui a efetividade) | sem teste nesse boss conta como 0, com aviso |
+
+Multiplicadores da efetividade (valores de PvE): Super Efetivo 2x, Efetivo 1,75x, Normal 1x, Inefetivo 0,75x, Muito Inefetivo 0,5x e Nulo 0x. Bosses do Nightmare World, onde o Nulo vale 0,5x, podem ser marcados como Muito Inefetivo. Mais detalhes em [docs/efetividade-pxg.md](docs/efetividade-pxg.md).
+
+O dano é uma estimativa média, sem simular a luta (animações e deslocamento ficam de fora):
+
+```text
+skill         = dano ÷ recarga × tempo × aproveitamento
+básico        = dano ÷ turno × tempo × aproveitamento
+buff (básico) = básico × (duração ÷ recarga do buff) × (multiplicador − 1)
+buff (magia)  = dano × aproveitamento × (multiplicador − 1) × tempo ÷ maior recarga entre a magia e o buff
+DPS           = total ÷ tempo
+```
+
+Cada pokémon tem no máximo um buff. O bônus na próxima magia usa a magia que mais rende, supondo que ela é guardada para o buff, já considerando a efetividade. Boost e held não entram na conta: anote na observação as condições do teste.
+
 ## Funcionalidades
 
 - **Filtros** (no topo do Dashboard, Hunts, Bosses e Relatórios): um único filtro vale para todas essas páginas. Veja [Filtros](#filtros).
@@ -177,6 +210,8 @@ Os itens viram drops da sessão com **Origem: Chat** na aba *Drops*, e **Raw gai
 - **Itens** e **Inimigos**: escolha um drop, supply ou inimigo para ver quantidade total, valor total, presença (em quantas Hunts apareceu), média por Hunt e por hora, valor médio, maior e menor quantidade, gráfico por Hunt e a lista das Hunts em que apareceu. As médias consideram as Hunts em que o item apareceu; no gráfico, as Hunts em que ele não apareceu ficam como barras vazias.
 - **Relatórios**: tabela de métricas (duração, kills, profit, supplies, raw gains, experience, damage dealt/taken) com total, média por Hunt, mínimo, máximo, **média das taxas** e **total ÷ tempo total**, mais rankings (top 25) de drops por valor, supplies por custo e inimigos por quantidade.
 - **Detalhes da Hunt**: abas *Resumo*, *Enemies*, *Drops* (com valor total, quantidade e origem: Analyzer ou [chat](#recompensas-do-chat)), *Supplies* (com custo total), *Gráficos* (inimigos, drops e supplies em barras ordenadas) e *JSON Original* (formatado, somente leitura, com botão de cópia). Várias Hunts podem ficar abertas ao mesmo tempo.
+- **DPS**: ranking dos pokémons em um boss com tempo limite, com cadastro e testes de dano. Veja [DPS](#dps).
+- **Preços**: define um preço próprio para qualquer item, que vale para todas as Hunts e recalcula Raw gains, Supplies e Profit.
 - **Configurações**: tema claro ou escuro, formato de números, banco de dados em uso e backups. Veja [Configurações e backup](#configurações-e-backup).
 
 ## Filtros
@@ -255,7 +290,7 @@ pokexgames-hunt-analyzer/
 │   ├── logging_setup.py         # Log em arquivo e aviso de erros inesperados
 │   ├── database/
 │   │   ├── database.py          # Engine, sessões, criação do esquema
-│   │   ├── models.py            # HuntSession, EnemyDefeated, Drop, Supply, ItemPrice, ChatReward
+│   │   ├── models.py            # HuntSession, EnemyDefeated, Drop, Supply, ItemPrice, ChatReward, tabelas Dps*
 │   │   ├── migrations.py        # Versões do esquema e migrações
 │   │   ├── query_filters.py     # Tradução de HuntFilter em condições SQL
 │   │   └── repositories.py      # TODAS as consultas SQL ficam aqui
@@ -272,21 +307,25 @@ pokexgames-hunt-analyzer/
 │   │   ├── export_service.py    # Escrita de CSV, Excel, PDF e JSON
 │   │   ├── export_documents.py  # Tabelas exportáveis (Hunts, relatório, comparação…)
 │   │   ├── backup_service.py    # Backup, rotação e restauração do banco
+│   │   ├── dps_calculator.py    # Conta do dano estimado (funções puras)
+│   │   ├── dps_service.py       # Bosses, pokémons e ranking da página DPS
 │   │   ├── settings_service.py  # Preferências (data/settings.json)
 │   │   ├── statistics_service.py# Totais, médias, taxas, métricas e rankings
 │   │   └── dto.py               # Objetos trocados entre serviços e interface
 │   ├── ui/
 │   │   ├── main_window.py       # QMainWindow + menu + navegação
 │   │   ├── sidebar.py           # Barra lateral
-│   │   ├── theme.py             # Tema escuro (paleta + QSS)
+│   │   ├── theme.py             # Temas escuro e claro (paleta + QSS)
 │   │   ├── icons.py             # Ícones SVG de resources/icons
 │   │   ├── import_controller.py # Fluxo de importação na interface
 │   │   ├── charts/              # Gráficos pyqtgraph (por Hunt e barras ordenadas)
 │   │   ├── filters/             # Estado do filtro + painel de filtros
 │   │   ├── dashboard/           # Página Dashboard
 │   │   ├── bosses/              # Página Bosses (uma aba por tipo de boss)
+│   │   ├── dps/                 # Página DPS (abas Ranking e Pokémons, cadastro e testes)
 │   │   ├── hunts/               # Lista de Hunts, detalhes, comparação e colar JSON
 │   │   ├── items/               # Páginas Itens e Inimigos
+│   │   ├── prices/              # Página Preços
 │   │   ├── reports/             # Página Relatórios
 │   │   ├── settings/            # Configurações
 │   │   └── widgets/             # Tabela genérica, cards, combos, botão Exportar
@@ -294,6 +333,7 @@ pokexgames-hunt-analyzer/
 │       ├── constants.py         # Nomes e chaves do JSON do Analyzer
 │       ├── formatters.py        # 1.119.522 · 01:11:50 · 119,5 M
 │       └── validators.py        # Conversões seguras (to_int, parse_datetime…)
+├── docs/                        # Efetividade de elementos no jogo
 ├── data/                        # hunts.db (não versionado)
 ├── imports/                     # Pasta sugerida para os JSONs
 ├── resources/icons/             # Ícones SVG
@@ -321,6 +361,13 @@ $env:PXG_HUNTS_DB = "C:\caminho\outro.db"; python main.py
 | `drops` | `item`, `count`, `unit_price`, `total_price`, `original_unit_price`, `original_total_price`, `player`, `ignored`, `chat_reward_id` (drops vindos do chat) | `hunt_id`, `item`, `chat_reward_id` |
 | `supplies` | mesmas colunas de `drops`, sem `chat_reward_id` | `hunt_id`, `item` |
 | `chat_rewards` | `hunt_id`, `text` (mensagens "Você recebeu:" coladas), `created_at` | `hunt_id` |
+| `dps_bosses` | `name`, `time_limit_seconds`, `damage_source` (Calcular por), `dummy`, `element_1`, `element_2` | — |
+| `dps_boss_effectiveness` | `boss_id`, `element`, `level` (só o que difere de Normal) | (`boss_id`, `element`) |
+| `dps_pokemons` | `name`, `note`, ataque básico (`basic_efficiency`, `basic_element`) e buff (`buff_*`) | — |
+| `dps_skills` | `pokemon_id`, `position`, `name`, `shape`, `reach`, `cooldown`, `efficiency`, `element` | `pokemon_id` |
+| `dps_damage_tests` | `pokemon_id`, `skill_id` (vazio = ataque básico), `dummy` (`boss` em teste dentro do boss), `boss_id`, `damage_1` a `damage_3` | `pokemon_id`, `skill_id`, `boss_id` |
+| `dps_boss_pokemons` | `boss_id`, `pokemon_id` (quem pode lutar contra cada boss) | (`boss_id`, `pokemon_id`), `pokemon_id` |
+| `dps_settings` | Turno do básico, aproveitamentos sugeridos e `last_boss_id` | — |
 
 As tabelas filhas usam `ON DELETE CASCADE`: excluir uma Hunt remove seus inimigos, drops, supplies e recompensas do chat.
 
@@ -334,7 +381,7 @@ Rodar todos os testes (incluindo o teste de fumaça da interface, que roda sem a
 python -m unittest discover -s tests -t .
 ```
 
-Os testes cobrem: JSON válido, inválido e incompleto; importação por arquivo e por texto colado; duplicidade (conteúdo idêntico, re-exportação, forçar importação); exclusão em cascata; persistência em arquivo; cálculos de duração, dinheiro e estatísticas; cada critério de filtro e suas combinações contra o SQLite real; pesquisa avançada; relatórios por item/inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; leitura das mensagens do chat e recompensas somadas e removidas das sessões; importação de pastas e arrastar e soltar; e os fluxos da interface (painel de filtros, Dashboard, Relatórios, comparação, Itens, Inimigos e detalhes).
+Os testes cobrem: JSON válido, inválido e incompleto; importação por arquivo e por texto colado; duplicidade (conteúdo idêntico, re-exportação, forçar importação); exclusão em cascata; persistência em arquivo; cálculos de duração, dinheiro e estatísticas; cada critério de filtro e suas combinações contra o SQLite real; pesquisa avançada; relatórios por item/inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; leitura das mensagens do chat e recompensas somadas e removidas das sessões; importação de pastas e arrastar e soltar; a conta do DPS (com a conferência da lista do colega), as três opções de Calcular por, os testes de dano e a migração dos bancos antigos; e os fluxos da interface (painel de filtros, Dashboard, Relatórios, comparação, Itens, Inimigos, detalhes e DPS).
 
 ### Suportar um novo campo do Analyzer
 

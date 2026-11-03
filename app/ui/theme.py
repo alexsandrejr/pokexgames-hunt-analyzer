@@ -184,6 +184,32 @@ def _stylesheet(c: dict[str, str]) -> str:
     QProgressBar::chunk {{ background: {c['accent']}; border-radius: 5px; }}
     QLineEdit[invalid="true"] {{ border-color: {c['negative']}; }}
     #ErrorLabel {{ color: {c['negative']}; }}
+    #WarningLabel {{ color: {c['warning']}; }}
+    QPlainTextEdit#DpsNote {{
+        background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 8px; padding: 4px;
+    }}
+
+    /* Listas (página DPS) */
+    QListWidget {{
+        background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 10px;
+        outline: 0; padding: 4px;
+    }}
+    QListWidget::item {{ padding: 6px; border-radius: 6px; }}
+    QListWidget#DpsRanking::item {{ padding: 0px; }}
+    QListWidget::item:hover {{ background: {c['surface_alt']}; }}
+    QListWidget::item:selected {{ background: {c['selection']}; color: {c['text']}; }}
+    QListWidget::indicator {{
+        width: 16px; height: 16px; border-radius: 4px;
+        border: 1px solid {c['muted']}; background: {c['surface']};
+    }}
+    QListWidget::indicator:checked {{
+        background: {c['accent']}; border-color: {c['accent']}; image: url({icons}/check.svg);
+    }}
+    QProgressBar#RankingBar {{
+        background: {c['surface_hover']}; border: none; border-radius: 4px;
+        min-height: 8px; max-height: 8px;
+    }}
+    QProgressBar#RankingBar::chunk {{ background: {c['chart_series']}; border-radius: 4px; }}
 
     /* Painel de filtros */
     #FilterPanel {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 12px; }}

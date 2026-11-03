@@ -9,7 +9,17 @@ from typing import Any
 from sqlalchemy import ColumnElement, delete, func, null, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
-from app.database.models import Drop, EnemyDefeated, HuntSession, ItemPrice, Supply
+from app.database.models import (
+    DpsBoss,
+    DpsDamageTest,
+    DpsPokemon,
+    DpsSettings,
+    Drop,
+    EnemyDefeated,
+    HuntSession,
+    ItemPrice,
+    Supply,
+)
 from app.database.query_filters import filtered_hunt_ids, hunt_filter_conditions
 from app.services.filters import HuntFilter, ItemSource
 
@@ -352,3 +362,38 @@ class PriceRepository:
                       HuntSession.id)
         )
         return self.session.execute(stmt).mappings().all()
+
+
+class DpsRepository:
+    """Bosses, pokémons e ajustes da página DPS."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def bosses(self) -> list[DpsBoss]:
+        stmt = select(DpsBoss).options(selectinload(DpsBoss.pokemons),
+                                       selectinload(DpsBoss.effectiveness))
+        return sorted(self.session.scalars(stmt), key=lambda boss: boss.name.casefold())
+
+    def boss(self, boss_id: int) -> DpsBoss | None:
+        return self.session.get(DpsBoss, boss_id)
+
+    def pokemons(self, boss_id: int | None = None) -> list[DpsPokemon]:
+        """Todos os pokémons ou só os marcados no boss, com tudo o que há neles carregado."""
+        stmt = select(DpsPokemon).options(selectinload(DpsPokemon.skills),
+                                          selectinload(DpsPokemon.bosses),
+                                          selectinload(DpsPokemon.damage_tests))
+        if boss_id is not None:
+            stmt = stmt.where(DpsPokemon.bosses.any(DpsBoss.id == boss_id))
+        return sorted(self.session.scalars(stmt), key=lambda pokemon: pokemon.name.casefold())
+
+    def pokemon(self, pokemon_id: int) -> DpsPokemon | None:
+        return self.session.get(DpsPokemon, pokemon_id)
+
+    def delete_damage_tests(self, pokemon_id: int, skill_id: int | None) -> None:
+        """Testes da skill; sem ``skill_id``, os do ataque básico."""
+        self.session.execute(delete(DpsDamageTest).where(
+            DpsDamageTest.pokemon_id == pokemon_id, DpsDamageTest.skill_id == skill_id))
+
+    def settings(self) -> DpsSettings | None:
+        return self.session.scalars(select(DpsSettings)).first()
