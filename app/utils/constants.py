@@ -1,8 +1,9 @@
 """Constantes compartilhadas: nomes da aplicação e chaves do JSON do Analyzer."""
 
 APP_NAME = "PokeXGames Hunt Analyzer"
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.6.0"
 ORGANIZATION_NAME = "PokeXGames Hunt Analyzer"
+GITHUB_REPOSITORY = "alexsandrejr/pokexgames-hunt-analyzer"
 
 
 class AnalyzerKeys:

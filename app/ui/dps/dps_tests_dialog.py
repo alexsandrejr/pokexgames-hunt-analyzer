@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -30,12 +31,21 @@ from app.services.dps_service import (
     damage_average,
 )
 from app.ui.icons import icon
-from app.utils.formatters import PLACEHOLDER, format_money, format_number
+from app.utils.formatters import (
+    PLACEHOLDER,
+    format_date,
+    format_datetime_short,
+    format_money,
+    format_number,
+)
 from app.utils.validators import parse_user_number
 
 DUMMY_COLUMN = 0
 AVERAGE_COLUMN = DAMAGES_PER_TEST + 1
-HEADERS = ["Testado em", *(f"Dano {n}" for n in range(1, DAMAGES_PER_TEST + 1)), "Média"]
+CREATED_COLUMN = AVERAGE_COLUMN + 1
+UPDATED_COLUMN = CREATED_COLUMN + 1
+HEADERS = ["Testado em", *(f"Dano {n}" for n in range(1, DAMAGES_PER_TEST + 1)), "Média",
+           "Cadastrado", "Modificado"]
 
 
 @dataclass
@@ -62,6 +72,19 @@ def _place_label(combo: QComboBox) -> str:
     return combo.currentText() if isinstance(combo.currentData(), int) else f"Dummy {combo.currentText()}"
 
 
+def _read_only_item(text: str, tooltip: str = "") -> QTableWidgetItem:
+    item = QTableWidgetItem(text)
+    item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+    item.setToolTip(tooltip)
+    return item
+
+
+def _date_item(moment: datetime | None, tooltip_if_empty: str) -> QTableWidgetItem:
+    """A data na célula, com a hora na dica."""
+    return _read_only_item(format_date(moment),
+                           format_datetime_short(moment) if moment else tooltip_if_empty)
+
+
 def _cell_damage(text: str, place: str) -> int | None:
     """Dano de uma célula; vazia é ``None``. Lança ``ValueError`` se for inválida."""
     if not text.strip():
@@ -86,7 +109,7 @@ class DamageTestsDialog(QDialog):
         self._current_row = -1
         self.setWindowTitle(f"Testes de {pokemon.name}")
         self.setWindowIcon(icon("dps"))
-        self.resize(860, 520)
+        self.resize(960, 520)
 
         self.targets_list = QListWidget()
         self.targets_list.setFixedWidth(210)
@@ -116,7 +139,8 @@ class DamageTestsDialog(QDialog):
         self.error_label.setTextFormat(Qt.TextFormat.PlainText)
         hint = QLabel("Escolha um dummy ou, para o dano real, “Boss: nome”. O ranking usa a média "
                       "conforme o “Calcular por” de cada boss, considerando só os danos "
-                      "preenchidos.", objectName="MutedLabel")
+                      "preenchidos. Modificado muda só quando os danos mudam; passe o mouse sobre "
+                      "uma data para ver a hora.", objectName="MutedLabel")
         hint.setWordWrap(True)
 
         panel = QVBoxLayout()
@@ -163,6 +187,8 @@ class DamageTestsDialog(QDialog):
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(DUMMY_COLUMN, QHeaderView.ResizeMode.Fixed)
         table.setColumnWidth(DUMMY_COLUMN, 170)
+        for column in (CREATED_COLUMN, UPDATED_COLUMN):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         return table
 
     # ------------------------------------------------------------------ dados
@@ -211,13 +237,13 @@ class DamageTestsDialog(QDialog):
     def save_current(self) -> bool:
         """Grava os testes da skill aberta; se forem inválidos, mostra o erro e retorna False."""
         try:
-            tests = self._read_tests()
-            self._service.save_damage_tests(self._pokemon.id, self._target.skill_id, tests)
+            saved = self._service.save_damage_tests(self._pokemon.id, self._target.skill_id,
+                                                    self._read_tests())
         except ValueError as exc:
             self.error_label.setText(str(exc))
             return False
         self.error_label.setText("")
-        self._tests[self._target.skill_id] = tests
+        self._tests[self._target.skill_id] = list(saved)
         self.targets_list.item(self._current_row).setText(self._target_text(self._current_row))
         return True
 
@@ -245,9 +271,13 @@ class DamageTestsDialog(QDialog):
         for column, damage in enumerate(damages, 1):
             table.setItem(row, column, QTableWidgetItem(
                 "" if damage is None else format_number(damage)))
-        average = QTableWidgetItem(format_money(damage_average(damages)))
-        average.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-        table.setItem(row, AVERAGE_COLUMN, average)
+        table.setItem(row, AVERAGE_COLUMN, _read_only_item(format_money(damage_average(damages))))
+        table.setItem(row, CREATED_COLUMN, _date_item(
+            test.created_at if test else None,
+            "Teste anterior ao registro de datas." if test else "Ainda não foi salvo."))
+        table.setItem(row, UPDATED_COLUMN, _date_item(
+            test.updated_at if test else None,
+            "Os danos não mudaram desde o cadastro." if test else "Ainda não foi salvo."))
         table.blockSignals(False)
         if test is None:
             table.setCurrentCell(row, 1)
@@ -273,7 +303,7 @@ class DamageTestsDialog(QDialog):
             return None
 
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
-        if item.column() != AVERAGE_COLUMN:
+        if item.column() < AVERAGE_COLUMN:
             self.table.item(item.row(), AVERAGE_COLUMN).setText(
                 format_money(self._row_average(item.row())))
 

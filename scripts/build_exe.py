@@ -172,6 +172,35 @@ def smoke_test(exe: Path) -> None:
     print("Executável testado: abriu, visitou todas as telas e fechou sem erros.")
 
 
+def update_test(app_dir: Path) -> None:
+    """Instala o pacote gerado por cima de uma cópia antiga, como faz a atualização automática."""
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "instalado"
+        internal = target / "_internal"
+        internal.mkdir(parents=True)
+        (internal / "arquivo_antigo.txt").write_text("antigo", encoding="utf-8")
+        (target / f"{EXE_NAME}.exe").write_bytes(b"antigo")
+        (target / "data").mkdir()
+        (target / "data" / "hunts.db").write_text("dados", encoding="utf-8")
+
+        env = dict(os.environ, QT_QPA_PLATFORM="offscreen", LOCALAPPDATA=tmp,
+                   PXG_HUNTS_DB=str(Path(tmp) / "smoke" / "hunts.db"))
+        result = subprocess.run([str(app_dir / f"{EXE_NAME}.exe"), "--apply-update", str(target),
+                                 "0", "--smoke-test"], env=env, timeout=300)
+        if result.returncode != 0:
+            raise SystemExit(f"A instalação da atualização falhou (código {result.returncode}).")
+        installed = target / f"{EXE_NAME}.exe"
+        if ((target / "data" / "hunts.db").read_text(encoding="utf-8") != "dados"
+                or (internal / "arquivo_antigo.txt").exists()
+                or installed.stat().st_size < 1024):
+            raise SystemExit("A atualização não deixou a pasta como deveria.")
+        # A pasta "data" faz a cópia usar o modo portátil: o banco é o de PXG_HUNTS_DB.
+        result = subprocess.run([str(installed), "--smoke-test"], env=env, timeout=180)
+        if result.returncode != 0:
+            raise SystemExit(f"O programa atualizado não abriu (código {result.returncode}).")
+    print("Atualização testada: trocou os arquivos, manteve a pasta data e abriu a versão nova.")
+
+
 # ------------------------------------------------------------------- pacote
 
 def package(onefile: bool) -> Path:
@@ -214,6 +243,9 @@ def main() -> None:
     if not options.skip_test:
         step("Testando o executável gerado")
         smoke_test(exe)
+        if not options.onefile:
+            step("Testando a instalação de uma atualização")
+            update_test(DIST_DIR / EXE_NAME)
 
     step("Compactando para distribuir")
     archive = package(options.onefile)

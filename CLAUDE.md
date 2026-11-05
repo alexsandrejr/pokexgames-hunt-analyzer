@@ -53,7 +53,8 @@ UI (PySide6) → Services → Repositories → SQLAlchemy → SQLite
 - **Testes de interface:** definem `QT_QPA_PLATFORM=offscreen` antes de importar o Qt e guardam o diálogo em uma variável, senão o Python o destrói no meio do teste.
 - **Quebras de linha:** o repositório guarda LF e a cópia de trabalho usa CRLF (`core.autocrlf`). Ao editar por script, preserve as quebras de linha para não gerar um diff do arquivo inteiro.
 - **Versão:** `APP_VERSION` em `app/utils/constants.py`. Commits seguem o formato `Título em português (x.y.0)`, com um corpo em tópicos.
-- **Git e release:** faça commit, push ou build só quando o dono pedir.
+- **Git e release:** faça commit, push ou build só quando o dono pedir. Publicar um release oferece a atualização a todos que usam o `.exe`, então só publique com o `.zip` testado pelo `build_exe.py`.
+- **Atualização automática:** toda versão precisa continuar aceitando `--apply-update <pasta> <pid>` e publicar `PokeXGames-Hunt-Analyzer-X.Y.Z-windows.zip` com a pasta `PokeXGames Hunt Analyzer` dentro, senão as versões já instaladas não conseguem se atualizar. Veja [Atualização do programa](README.md#atualização-do-programa).
 
 ## Domínio
 
@@ -94,13 +95,15 @@ Código: `app/services/dps_calculator.py` (conta pura), `dps_service.py` (cadast
 | Sem teste na origem do boss, ou golpe sem elemento na Efetividade: dano 0 e aviso, sem substituto | Decisão explícita do dono; evita misturar danos de origens diferentes. O modo Automático, que mistura, foi deixado para depois |
 | Boost e held fora da conta; aviso "resiste ao boss" fora do escopo | O dano é o medido. O dono deixou o aviso de resistência para depois |
 | Testes guardados à parte: até 3 danos por dummy (Neutro ou 18 elementos) ou por boss, em cada skill e no básico | Neutro, Normal e Fighting são dummies diferentes. Crystal ficou de fora: o dono não conhece dummy nem golpes desse tipo |
+| Cada teste guarda as datas de cadastro e de modificação, sem data inventada para os antigos | Pedido do dono, para perceber pela data que um teste está desatualizado quando o pokémon muda. Modificado só muda quando os danos mudam, e trocar o dummy ou o boss cria um teste novo. Duplicar mantém as datas, porque a medição continua sendo a antiga |
 | Elemento do golpe opcional | Só o cálculo por Efetividade precisa dele |
 | Duplicar copia os testes, de forma independente | Como o dano só vem dos testes, uma cópia sem eles nasceria zerada |
-| Sem vida do boss, colar texto, exportação ou painel de filtros | Fora do pedido. O dono recusou explicitamente colar texto |
+| Exportar e importar por arquivo, com lista para marcar o que vai e testes incluídos; em nome repetido, escolha por cadastro entre Pular (padrão), Substituir e Criar cópia | Decisão do dono (2026-11-05). Sem os testes, o pokémon chegaria zerado. Substituir faz backup antes e mantém os bosses que o pokémon já tinha |
+| Sem vida do boss, colar texto ou painel de filtros | Fora do pedido. O dono recusou explicitamente colar texto |
 
 **Conferência da conta:** no `calculate`, com os danos da lista do colega, básico a 100% e sem o bônus da próxima magia, os totais em 420 s reproduzem a lista do colega (Chumbin 2.916.520, Muq 2.626.680, Maurolem 2.596.300, Sandsmauro 2.441.543, Jeremia 2.347.850, Polishop 2.273.505, Jolt 2.124.150, Bartolomeu 1.878.800). Com as regras atuais, o Chumbin dá **3.046.300**. Esses casos estão em `tests/test_dps.py` e precisam continuar passando; mudar a fórmula de propósito exige combinar com o dono.
 
-**Testes e edição:** `_apply_spec` reaproveita as skills pelo `SkillSpec.skill_id`, porque os testes apontam para elas. Preserve esse id em qualquer fluxo de edição, senão salvar o pokémon apaga os testes.
+**Testes e edição:** `apply_spec` reaproveita as skills pelo `SkillSpec.skill_id`, porque os testes apontam para elas. Preserve esse id em qualquer fluxo de edição, senão salvar o pokémon apaga os testes.
 
 **Dados do colega:** os 8 monstros foram inseridos uma vez em `data/hunts.db` e depois excluídos de propósito pelo dono (2026-11-02). O app não traz monstros embutidos. Os números originais continuam em `tests/test_dps.py`, e as skills e recargas, no backup `hunts_backup_2026-11-02_19-18-01_antes-atualizacao.db`.
 
@@ -124,6 +127,7 @@ window.grab().save("captura.png")
 - Revisão do DPS (2026-11-03): nenhuma fórmula errada. Sugestões aguardando o dono: avisar testes muito diferentes entre si, marcar empates e fichas incompletas no ranking, avisar pokémon sem básico, aceitar dano 0 dentro do boss e comparar a estimativa com o dano real.
 
 **Banco real**
+- A 1.6.0 (2026-11-05) traz as datas dos testes (migração 10), exportar e importar cadastros do DPS e a atualização automática pelo GitHub, e está publicada no GitHub com o `.zip`. Quem tem versões anteriores precisa baixá-la à mão uma vez. O banco real muda de versão quando o dono abrir o app nessa versão.
 - `data/hunts.db` está na versão 9: o dono abriu o app em 2026-11-03, e o backup de antes da migração está em `data/backups/`. Tem 3 sessões, os bosses Padrão e TESTE e 1 pokémon (Steelix, com testes), anexado a um boss. O dono excluiu de propósito os 8 monstros do colega.
 - O redesign 1.5.0 não mudou o banco nem criou migração.
 

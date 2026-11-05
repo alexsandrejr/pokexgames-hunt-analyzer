@@ -299,6 +299,10 @@ class DpsDamageTest(Base):
     damage_1: Mapped[int | None]
     damage_2: Mapped[int | None]
     damage_3: Mapped[int | None]
+    # Sem data de cadastro: o teste é anterior ao registro de datas.
+    created_at: Mapped[datetime | None]
+    # Sem data de modificação: os danos nunca mudaram depois do cadastro.
+    updated_at: Mapped[datetime | None]
 
 
 class DpsSettings(Base):

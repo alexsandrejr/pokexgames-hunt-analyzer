@@ -14,6 +14,7 @@ from app.config import (
     LOGS_DIR,
     PATHS,
     SETTINGS_PATH,
+    UPDATES_DIR,
     backups_dir_for,
     get_database_path,
 )
@@ -26,14 +27,18 @@ from app.services.hunt_service import HuntService
 from app.services.price_service import PriceService
 from app.services.settings_service import AppSettings, SettingsStore
 from app.services.statistics_service import StatisticsService
+from app.services.update_service import APPLY_UPDATE_ARG, UpdateService, clean_leftovers
 from app.ui.icons import icon
 from app.ui.main_window import MainWindow
 from app.ui.theme import apply_theme, use_palette
+from app.ui.update.install_window import run_install
+from app.ui.update.update_controller import UpdateController
 from app.utils.constants import APP_NAME, APP_VERSION, ORGANIZATION_NAME
 from app.utils.formatters import set_number_format
 
 WINDOWS_APP_ID = "pokexgames.hunt-analyzer"
 SMOKE_TEST_ARG = "--smoke-test"  # abre, visita todas as telas e fecha (verificação do .exe)
+UPDATE_CHECK_DELAY_MS = 3000  # deixa a janela abrir antes de ir à internet
 
 
 def _set_windows_app_id() -> None:
@@ -114,6 +119,10 @@ def run(argv: Sequence[str] | None = None) -> int:
     install_exception_hook(log_file)
     logger.info("Iniciando %s %s (executável: %s, dados: %s%s)", APP_NAME, APP_VERSION,
                 IS_FROZEN, PATHS.data_dir, ", portátil" if PATHS.portable else "")
+    if APPLY_UPDATE_ARG in arguments:
+        return run_install(arguments)  # só troca os arquivos: não abre o banco nem a janela
+    if IS_FROZEN:
+        clean_leftovers(UPDATES_DIR, Path(sys.executable).parent)
 
     app = QApplication(arguments)
     app.setApplicationName(APP_NAME)
@@ -149,8 +158,13 @@ def run(argv: Sequence[str] | None = None) -> int:
                         backups, store, settings, restart=restart_application,
                         price_service=PriceService(database), dps_service=DpsService(database))
     window.show()
+
+    updates = UpdateController(window, UpdateService(UPDATES_DIR), frozen=IS_FROZEN)
+    window.settings_page.connect_updates(updates)
     if SMOKE_TEST_ARG in arguments:
         _schedule_smoke_test(window)
+    elif IS_FROZEN and settings.check_updates:
+        QTimer.singleShot(UPDATE_CHECK_DELAY_MS, window, lambda: updates.check(silent=True))
     exit_code = app.exec()
     logger.info("Encerrado com código %s", exit_code)
     database.dispose()

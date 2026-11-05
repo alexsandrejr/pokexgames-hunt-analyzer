@@ -1,7 +1,9 @@
 import tempfile
 import unittest
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from app.database.database import Database
 from app.database.migrations import LATEST_VERSION
@@ -405,6 +407,58 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.pokemon(pokemon_id).tests[skill_id],
                          (DamageTest("neutral", (100, 200, 300)),))  # nada mudou
 
+    def _save_on(self, day: int, pokemon_id: int, skill_id: int | None,
+                 tests: list[DamageTest]) -> DamageTest:
+        """Salva os testes como se fosse o dia ``day`` e devolve o primeiro, relido do banco."""
+        with patch("app.services.dps_service.datetime") as clock:
+            clock.now.return_value = datetime(2026, 11, day, 12)
+            self.service.save_damage_tests(pokemon_id, skill_id, tests)
+        return self.pokemon(pokemon_id).tests[skill_id][0]
+
+    def test_new_test_has_only_the_created_date(self) -> None:
+        pokemon_id = self.add("Muq")
+        test = self._save_on(1, pokemon_id, None, [DamageTest("ice", (100,))])
+        self.assertEqual(test.created_at, datetime(2026, 11, 1, 12))
+        self.assertIsNone(test.updated_at)
+
+    def test_saving_the_same_damages_keeps_the_dates(self) -> None:
+        pokemon_id = self.add("Muq")
+        self._save_on(1, pokemon_id, None, [DamageTest("ice", (100,))])
+        test = self._save_on(2, pokemon_id, None, [DamageTest("ice", (100, None, None))])
+        self.assertEqual(test.created_at, datetime(2026, 11, 1, 12))
+        self.assertIsNone(test.updated_at)
+
+    def test_changing_a_damage_records_the_modification(self) -> None:
+        pokemon_id = self.add("Muq")
+        self._save_on(1, pokemon_id, None, [DamageTest("ice", (100,))])
+        self._save_on(2, pokemon_id, None, [DamageTest("ice", (150,))])
+        test = self._save_on(3, pokemon_id, None, [DamageTest("ice", (150,))])
+        self.assertEqual(test.created_at, datetime(2026, 11, 1, 12))
+        self.assertEqual(test.updated_at, datetime(2026, 11, 2, 12))
+
+    def test_test_in_another_place_is_a_new_test(self) -> None:
+        pokemon_id = self.add("Muq")
+        self._save_on(1, pokemon_id, None, [DamageTest("ice", (100,))])
+        test = self._save_on(2, pokemon_id, None, [DamageTest("water", (100,))])
+        self.assertEqual(test.created_at, datetime(2026, 11, 2, 12))
+        self.assertIsNone(test.updated_at)
+
+    def test_changing_one_test_keeps_the_dates_of_the_others(self) -> None:
+        pokemon_id = self.add("Muq")
+        self._save_on(1, pokemon_id, None, [DamageTest("ice", (100,)), DamageTest("water", (5,))])
+        self._save_on(2, pokemon_id, None, [DamageTest("ice", (100,)), DamageTest("water", (6,))])
+        ice, water = self.pokemon(pokemon_id).tests[None]
+        self.assertIsNone(ice.updated_at)
+        self.assertEqual(water.updated_at, datetime(2026, 11, 2, 12))
+
+    def test_duplicate_keeps_the_dates_of_the_tests(self) -> None:
+        pokemon_id = self.add("Muq")
+        self._save_on(1, pokemon_id, None, [DamageTest("ice", (100,))])
+        self._save_on(2, pokemon_id, None, [DamageTest("ice", (150,))])
+        [copied] = self.pokemon(self.service.duplicate_pokemon(pokemon_id)).tests[None]
+        self.assertEqual(copied.created_at, datetime(2026, 11, 1, 12))
+        self.assertEqual(copied.updated_at, datetime(2026, 11, 2, 12))
+
     def test_editing_keeps_tests_of_remaining_skills(self) -> None:
         pokemon_id, skill_id = self._with_tests()
         [first, second] = self.pokemon(pokemon_id).spec.skills
@@ -618,12 +672,21 @@ class ServiceTests(unittest.TestCase):
 
             database = Database.from_path(path)
             self.addCleanup(database.dispose)
-            self.assertEqual([m.version for m in database.create_schema()], [LATEST_VERSION])
+            self.assertEqual([m.version for m in database.create_schema()],
+                             list(range(9, LATEST_VERSION + 1)))
             service = DpsService(database)
             [boss] = service.list_bosses()
             self.assertIs(boss.damage_source, DamageSource.DUMMY)
             [entry] = service.ranking(boss.id)
             self.assertAlmostEqual(entry.breakdown.total, 1000 / 100 * 420)
+            # O teste antigo fica sem data de cadastro, e a modificação passa a ser registrada.
+            [pokemon] = service.list_pokemons()
+            [test] = pokemon.tests[5]
+            self.assertIsNone(test.created_at)
+            self.assertIsNone(test.updated_at)
+            [saved] = service.save_damage_tests(1, 5, [DamageTest("neutral", (2000,))])
+            self.assertIsNone(saved.created_at)
+            self.assertIsNotNone(saved.updated_at)
             database.dispose()
 
     def test_version_7_database_loses_typed_damage_and_keeps_the_rest(self) -> None:

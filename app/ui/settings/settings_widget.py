@@ -121,9 +121,10 @@ class SettingsPage(QWidget):
         layout.setContentsMargins(*PAGE_MARGINS)
         layout.setSpacing(16)
         layout.addWidget(PageHeader("Configurações",
-                                    "Aparência, banco de dados e backups"))
+                                    "Aparência, atualizações, banco de dados e backups"))
         layout.addWidget(self._build_restart_notice())
         layout.addWidget(self._build_appearance())
+        layout.addWidget(self._build_updates())
         layout.addWidget(self._build_database())
         layout.addWidget(self._build_backups())
         layout.addStretch(1)
@@ -176,6 +177,36 @@ class SettingsPage(QWidget):
         hint.setWordWrap(True)
         layout.addWidget(hint)
         return card
+
+    def _build_updates(self) -> QFrame:
+        card, layout = _card("Atualizações")
+        self.check_updates_box = QCheckBox("Verificar se há versão nova ao abrir o aplicativo")
+        self.check_updates_box.setChecked(self.settings.check_updates)
+        self.check_updates_box.toggled.connect(
+            lambda checked: self._save_settings(check_updates=checked))
+        layout.addWidget(self.check_updates_box)
+        self.check_now_button = QPushButton(icon("refresh"), "  Verificar agora")
+        self.check_now_button.setEnabled(False)  # até ``connect_updates``
+        self.update_status_label = QLabel(f"Versão instalada: {APP_VERSION}.",
+                                          objectName="CardHint")
+        self.update_status_label.setWordWrap(True)
+        row = _button_row(self.check_now_button)
+        row.insertWidget(1, self.update_status_label, 1)
+        layout.addLayout(row)
+        hint = QLabel("A verificação só consulta os releases do projeto no GitHub. Nada é "
+                      "instalado sem você confirmar, e seus dados continuam onde estão.",
+                      objectName="CardHint")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        return card
+
+    def connect_updates(self, updates) -> None:
+        """Liga o botão "Verificar agora" ao ``UpdateController``."""
+        self.check_now_button.setEnabled(True)
+        self.check_now_button.clicked.connect(lambda: updates.check())
+        updates.status_changed.connect(self.update_status_label.setText)
+        updates.checking_changed.connect(
+            lambda checking: self.check_now_button.setEnabled(not checking))
 
     def _build_database(self) -> QFrame:
         card, layout = _card("Banco de dados")

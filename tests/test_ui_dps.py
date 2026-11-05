@@ -3,6 +3,7 @@
 import os
 import unittest
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -41,9 +42,15 @@ from app.ui.dps.dps_dialogs import (  # noqa: E402
     ELEMENT_COLUMN,
     PokemonDialog,
 )
-from app.ui.dps.dps_tests_dialog import AVERAGE_COLUMN, DamageTestsDialog  # noqa: E402
+from app.ui.dps.dps_tests_dialog import (  # noqa: E402
+    AVERAGE_COLUMN,
+    CREATED_COLUMN,
+    UPDATED_COLUMN,
+    DamageTestsDialog,
+)
 from app.ui.main_window import MainWindow  # noqa: E402
 from app.ui.theme import ELEMENT_COLORS, apply_theme  # noqa: E402
+from app.utils.formatters import format_date  # noqa: E402
 from tests.helpers import memory_database  # noqa: E402
 
 
@@ -280,6 +287,33 @@ class DamageTestsDialogTests(DpsTestCase):
         self.assertEqual(dialog.table.item(0, 1).text(), "1.000")
         self.assertEqual(dialog.table.item(0, 2).text(), "")
         self.assertEqual(dialog.table.item(0, AVERAGE_COLUMN).text(), "2.000")
+
+    def test_dates_appear_after_saving_and_are_read_only(self) -> None:
+        self.dialog.add_test()
+        self.fill(0, "1k")
+        self.assertEqual(self.dialog.table.item(0, CREATED_COLUMN).text(), "—")
+        self.dialog.targets_list.setCurrentRow(1)
+        self.dialog.targets_list.setCurrentRow(0)
+
+        today = format_date(datetime.now())
+        created, updated = (self.dialog.table.item(0, column)
+                            for column in (CREATED_COLUMN, UPDATED_COLUMN))
+        self.assertEqual(created.text(), today)
+        self.assertEqual(updated.text(), "—")
+        self.assertFalse(created.flags() & Qt.ItemFlag.ItemIsEditable)
+        self.assertFalse(updated.flags() & Qt.ItemFlag.ItemIsEditable)
+
+        self.fill(0, "2k")
+        self.dialog.targets_list.setCurrentRow(1)
+        self.dialog.targets_list.setCurrentRow(0)
+        self.assertEqual(self.dialog.table.item(0, UPDATED_COLUMN).text(), today)
+
+    def test_opening_and_closing_does_not_mark_as_modified(self) -> None:
+        self.service.save_damage_tests(self.pokemon_id, None, [DamageTest("ice", (1234567,))])
+        dialog = DamageTestsDialog(self.service, self.pokemon(self.pokemon_id))
+        dialog.accept()
+        [test] = self.saved()[None]
+        self.assertIsNone(test.updated_at)
 
 
 class OtherDialogTests(DpsTestCase):

@@ -24,6 +24,7 @@ class AppSettings:
     database_path: str | None = None  # None: banco padrão (ver app/config.py)
     auto_backup: bool = True
     backups_to_keep: int = 10
+    check_updates: bool = True  # verificar no GitHub ao abrir o executável
 
     def validated(self) -> AppSettings:
         """Troca valores inválidos pelos padrões."""
@@ -41,6 +42,8 @@ class AppSettings:
             backups_to_keep=(keep if isinstance(keep, int) and not isinstance(keep, bool)
                              and MIN_BACKUPS_TO_KEEP <= keep <= MAX_BACKUPS_TO_KEEP
                              else default.backups_to_keep),
+            check_updates=self.check_updates if isinstance(self.check_updates, bool)
+            else default.check_updates,
         )
 
 

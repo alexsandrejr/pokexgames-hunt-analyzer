@@ -56,6 +56,7 @@ IMPORTS_DIR = PATHS.imports_dir
 RESOURCES_DIR = PATHS.resources_dir
 ICONS_DIR = RESOURCES_DIR / "icons"
 LOGS_DIR = DATA_DIR / "logs"
+UPDATES_DIR = DATA_DIR / "updates"  # downloads de versões novas, apagados na abertura seguinte
 
 DEFAULT_DB_PATH = DATA_DIR / "hunts.db"
 SETTINGS_PATH = DATA_DIR / "settings.json"

@@ -27,9 +27,11 @@ class BackupKind:
     AUTOMATIC = "auto"
     BEFORE_RESTORE = "antes-restauracao"
     BEFORE_MIGRATION = "antes-atualizacao"
+    BEFORE_IMPORT = "antes-importacao"
 
     LABELS = {MANUAL: "Manual", AUTOMATIC: "Automático",
-              BEFORE_RESTORE: "Antes de restaurar", BEFORE_MIGRATION: "Antes de atualizar"}
+              BEFORE_RESTORE: "Antes de restaurar", BEFORE_MIGRATION: "Antes de atualizar",
+              BEFORE_IMPORT: "Antes de importar"}
 
 
 class BackupError(Exception):

@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from enum import Enum
 
 from app.database.database import Database
@@ -116,6 +117,9 @@ class DamageTest:
     dummy: str
     damages: tuple[int | None, ...]
     boss_id: int | None = None  # preenchido só em testes dentro de um boss
+    # Registro, fora da comparação: quem define as datas é o ``save_damage_tests``.
+    created_at: datetime | None = field(default=None, compare=False)
+    updated_at: datetime | None = field(default=None, compare=False)
 
     @classmethod
     def in_boss(cls, boss_id: int, damages: tuple[int | None, ...]) -> DamageTest:
@@ -262,7 +266,7 @@ def _boss_data(boss: DpsBoss) -> BossData:
                      for row in boss.effectiveness})
 
 
-def _apply_boss_profile(boss: DpsBoss, elements: Sequence[Element],
+def apply_boss_profile(boss: DpsBoss, elements: Sequence[Element],
                         effectiveness: Mapping[Element, EffectivenessLevel]) -> None:
     values = [element.value for element in elements]
     boss.element_1, boss.element_2 = (*values, None, None)[:MAX_BOSS_ELEMENTS]
@@ -298,13 +302,14 @@ def _pokemon_data(pokemon: DpsPokemon) -> PokemonData:
     tests: dict[int | None, list[DamageTest]] = {}
     for row in pokemon.damage_tests:
         tests.setdefault(row.skill_id, []).append(
-            DamageTest(row.dummy, (row.damage_1, row.damage_2, row.damage_3), row.boss_id))
+            DamageTest(row.dummy, (row.damage_1, row.damage_2, row.damage_3), row.boss_id,
+                       row.created_at, row.updated_at))
     return PokemonData(pokemon.id, pokemon.name, pokemon.note, _pokemon_spec(pokemon),
                        frozenset(boss.id for boss in pokemon.bosses),
                        {key: tuple(value) for key, value in tests.items()})
 
 
-def _apply_spec(pokemon: DpsPokemon, spec: PokemonSpec) -> None:
+def apply_spec(pokemon: DpsPokemon, spec: PokemonSpec) -> None:
     pokemon.basic_efficiency = spec.basic.efficiency if spec.basic else None
     pokemon.basic_element = (spec.basic.element.value
                              if spec.basic and spec.basic.element else None)
@@ -411,7 +416,7 @@ class DpsService:
             session.flush()
             if elements is not None or effectiveness is not None:
                 current = _boss_data(boss)
-                _apply_boss_profile(
+                apply_boss_profile(
                     boss, current.elements if elements is None else elements,
                     current.effectiveness if effectiveness is None else effectiveness)
                 session.flush()
@@ -481,7 +486,7 @@ class DpsService:
                     pokemon.bosses.append(boss)
             pokemon.name = name
             pokemon.note = note.strip()
-            _apply_spec(pokemon, spec)
+            apply_spec(pokemon, spec)
             session.flush()
             return pokemon.id
 
@@ -496,7 +501,7 @@ class DpsService:
             session.add(copy)
             # Sem ids na ficha, para criar skills novas em vez de mover as do original.
             spec = _pokemon_spec(original)
-            _apply_spec(copy, replace(spec, skills=tuple(
+            apply_spec(copy, replace(spec, skills=tuple(
                 replace(skill, skill_id=None) for skill in spec.skills)))
             copy.bosses = list(original.bosses)
             session.flush()
@@ -505,7 +510,9 @@ class DpsService:
                 session.add(DpsDamageTest(
                     pokemon_id=copy.id, skill_id=new_skill_ids.get(test.skill_id),
                     dummy=test.dummy, boss_id=test.boss_id, damage_1=test.damage_1,
-                    damage_2=test.damage_2, damage_3=test.damage_3))
+                    damage_2=test.damage_2, damage_3=test.damage_3,
+                    # A cópia mantém as datas: copiar não torna a medição mais recente.
+                    created_at=test.created_at, updated_at=test.updated_at))
             return copy.id
 
     def delete_pokemon(self, pokemon_id: int) -> None:
@@ -517,18 +524,38 @@ class DpsService:
     # ----------------------------------------------------------------- testes
 
     def save_damage_tests(self, pokemon_id: int, skill_id: int | None,
-                          tests: Sequence[DamageTest]) -> None:
-        """Substitui os testes da skill (sem ``skill_id``, os do ataque básico)."""
+                          tests: Sequence[DamageTest]) -> tuple[DamageTest, ...]:
+        """Substitui os testes da skill (sem ``skill_id``, os do ataque básico) e os retorna.
+
+        Um teste é o mesmo se continua no mesmo dummy ou boss. Ele mantém as datas se os danos
+        não mudaram e ganha a data de modificação se mudaram; em outro lugar, é um teste novo.
+        """
+        now = datetime.now()
+        saved = []
         with self.database.session() as session:
             repository = DpsRepository(session)
             validate_tests(tests, {boss.id: boss.name for boss in repository.bosses()})
+            previous = {
+                (row.dummy, row.boss_id): (
+                    (row.damage_1, row.damage_2, row.damage_3), row.created_at, row.updated_at)
+                for row in repository.damage_tests(pokemon_id, skill_id)}
             repository.delete_damage_tests(pokemon_id, skill_id)
             for test in tests:
                 damages = (*test.damages, *[None] * (DAMAGES_PER_TEST - len(test.damages)))
+                old = previous.get((test.dummy, test.boss_id))
+                if old is None:
+                    created_at, updated_at = now, None
+                else:
+                    old_damages, created_at, updated_at = old
+                    if damages != old_damages:
+                        updated_at = now
                 session.add(DpsDamageTest(
                     pokemon_id=pokemon_id, skill_id=skill_id, dummy=test.dummy,
                     boss_id=test.boss_id,
-                    damage_1=damages[0], damage_2=damages[1], damage_3=damages[2]))
+                    damage_1=damages[0], damage_2=damages[1], damage_3=damages[2],
+                    created_at=created_at, updated_at=updated_at))
+                saved.append(DamageTest(test.dummy, damages, test.boss_id, created_at, updated_at))
+        return tuple(saved)
 
     # ---------------------------------------------------------------- ranking
 

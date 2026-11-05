@@ -121,7 +121,8 @@ class MainWindow(QMainWindow):
             "all_sessions": self.all_sessions_page,
             "hunts": self.hunts_page,
             "bosses": self.bosses_page,
-            "dps": DpsPage(dps_service or DpsService(hunt_service.database)),
+            "dps": DpsPage(dps_service or DpsService(hunt_service.database),
+                           backups=backup_service),
             "reports": self.reports_page,
             "items": EntityReportPage(
                 "Itens", "Drops e supplies ao longo das Hunts filtradas",

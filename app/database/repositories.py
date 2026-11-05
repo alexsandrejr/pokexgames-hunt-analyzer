@@ -390,6 +390,11 @@ class DpsRepository:
     def pokemon(self, pokemon_id: int) -> DpsPokemon | None:
         return self.session.get(DpsPokemon, pokemon_id)
 
+    def damage_tests(self, pokemon_id: int, skill_id: int | None) -> list[DpsDamageTest]:
+        """Testes da skill; sem ``skill_id``, os do ataque básico."""
+        return list(self.session.scalars(select(DpsDamageTest).where(
+            DpsDamageTest.pokemon_id == pokemon_id, DpsDamageTest.skill_id == skill_id)))
+
     def delete_damage_tests(self, pokemon_id: int, skill_id: int | None) -> None:
         """Testes da skill; sem ``skill_id``, os do ataque básico."""
         self.session.execute(delete(DpsDamageTest).where(

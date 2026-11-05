@@ -86,6 +86,10 @@ MIGRATIONS: tuple[Migration, ...] = (
         ("dps_damage_tests", "boss_id",
          "INTEGER REFERENCES dps_bosses (id) ON DELETE CASCADE"),
     )),
+    Migration(10, "Página DPS: datas de cadastro e de modificação dos testes", columns=(
+        ("dps_damage_tests", "created_at", "DATETIME"),
+        ("dps_damage_tests", "updated_at", "DATETIME"),
+    )),
 )
 
 LATEST_VERSION = MIGRATIONS[-1].version

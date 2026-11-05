@@ -54,6 +54,10 @@ Ela não usa as Hunts importadas: você cadastra tudo à mão.
 O que não foi testado conta como 0 e aparece com um aviso. O resultado é uma
 estimativa pela média, sem simular a luta.
 
+Para passar seus cadastros a um colega, use "Exportar cadastros": escolha os
+bosses e pokémons e salve o arquivo. Quem recebe usa "Importar cadastros" e, em
+cada nome que já existir, escolhe entre Pular, Substituir ou Criar cópia.
+
 
 PREÇOS DOS ITENS
 ----------------
@@ -69,11 +73,22 @@ Em %LOCALAPPDATA%\PokeXGames Hunt Analyzer
 (cole esse endereço na barra do Explorador de Arquivos para abrir a pasta).
 Lá ficam o banco (hunts.db), os backups e as configurações.
 
-Atualizar o programa não apaga nada: basta substituir a pasta do programa pela
-versão nova. Os dados continuam no mesmo lugar.
+Atualizar o programa não apaga nada: os dados continuam no mesmo lugar.
 
 Modo portátil (pendrive): crie uma pasta chamada "data" ao lado do .exe. A
 partir daí, o programa guarda tudo nela.
+
+
+ATUALIZAÇÕES
+------------
+A partir da versão 1.6.0, o programa verifica sozinho se há versão nova ao abrir.
+Se houver, ele mostra as novidades e pergunta se você quer atualizar. Ao
+confirmar, ele baixa a versão nova, fecha e abre de novo já atualizado.
+Em Configurações > Atualizações você verifica na hora ou desliga a verificação.
+
+Se a atualização não puder ser feita sozinha (por exemplo, o programa está em
+uma pasta sem permissão de escrita), baixe o .zip na página do projeto no GitHub
+e substitua a pasta do programa.
 
 
 BACKUP

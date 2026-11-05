@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
+from datetime import datetime
+from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -22,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.services.backup_service import BackupError, BackupKind, BackupService
 from app.services.dps_calculator import DamageLine, EffectivenessLevel, Element
 from app.services.dps_service import (
     DUMMY_OPTIONS,
@@ -32,6 +36,14 @@ from app.services.dps_service import (
     RankingEntry,
     dummy_label,
 )
+from app.services.dps_transfer import (
+    DpsBundle,
+    DpsTransferService,
+    ImportAction,
+    ImportItem,
+    ImportResult,
+    read_bundle,
+)
 from app.ui.dps.dps_dialogs import (
     BossDialog,
     BossPokemonsDialog,
@@ -39,14 +51,22 @@ from app.ui.dps.dps_dialogs import (
     PokemonDialog,
 )
 from app.ui.dps.dps_pokemons_tab import PokemonsTab, announce
+from app.ui.dps.dps_transfer_dialogs import DpsExportDialog, DpsImportDialog
 from app.ui.icons import icon
 from app.ui.theme import COLORS, ELEMENT_COLORS
 from app.ui.widgets.elided_label import ElidedLabel
 from app.ui.widgets.page import PAGE_MARGINS, EmptyState, PageHeader
 from app.ui.widgets.record_table import Column, RecordTable
-from app.utils.formatters import format_duration_long, format_money, format_percent, format_plain
+from app.utils.formatters import (
+    format_duration_long,
+    format_money,
+    format_number,
+    format_percent,
+    format_plain,
+)
 
 BAR_RESOLUTION = 1000
+TRANSFER_FILTER = "Cadastros do DPS (*.json);;Todos os arquivos (*)"
 
 EMPTY_TITLE = "Nenhum pokémon neste boss"
 EMPTY_MESSAGE = "Use “Adicionar” para anexar os pokémons cadastrados na aba Pokémons."
@@ -55,11 +75,23 @@ NO_WEAKNESSES_WARNING = ("Marque as fraquezas em Gerenciar bosses → Editar bos
 
 
 class DpsPage(QWidget):
-    def __init__(self, service: DpsService, parent: QWidget | None = None) -> None:
+    def __init__(self, service: DpsService, parent: QWidget | None = None,
+                 backups: BackupService | None = None) -> None:
         super().__init__(parent)
         self._service = service
+        self._transfer = DpsTransferService(service.database)
+        self._backups = backups
 
         self._header = PageHeader("DPS", "Dano estimado no tempo limite do boss")
+        import_button = QPushButton(icon("import"), "  Importar cadastros")
+        import_button.setToolTip("Trazer bosses e pokémons de um arquivo exportado")
+        import_button.clicked.connect(self.import_file)
+        self._header.add_action(import_button)
+        export_button = QPushButton(icon("export"), "  Exportar cadastros")
+        export_button.setToolTip("Salvar bosses e pokémons em um arquivo, para enviar a outra "
+                                 "pessoa ou guardar")
+        export_button.clicked.connect(self.export_file)
+        self._header.add_action(export_button)
         settings_button = QPushButton(icon("settings"), "  Ajustes")
         settings_button.setToolTip("Turno do ataque básico e aproveitamentos sugeridos")
         settings_button.clicked.connect(self.edit_settings)
@@ -88,6 +120,69 @@ class DpsPage(QWidget):
         if dialog.exec() == DpsSettingsDialog.DialogCode.Accepted:
             self._service.update_settings(dialog.settings())
             self.refresh()
+
+    # ----------------------------------------------------- exportar e importar
+
+    def export_file(self) -> None:
+        dialog = DpsExportDialog(self._service.list_bosses(), self._service.list_pokemons(), self)
+        if dialog.exec() != DpsExportDialog.DialogCode.Accepted:
+            return
+        suggested = Path.home() / f"dps_cadastros_{datetime.now():%Y-%m-%d}.json"
+        path, _ = QFileDialog.getSaveFileName(self, "Salvar cadastros do DPS", str(suggested),
+                                              TRANSFER_FILTER)
+        if path:
+            self.export_to(Path(path), dialog.boss_ids(), dialog.pokemon_ids())
+
+    def export_to(self, path: Path, boss_ids: Collection[int],
+                  pokemon_ids: Collection[int]) -> None:
+        try:
+            self._transfer.export_file(path, boss_ids, pokemon_ids)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Exportar cadastros", str(exc))
+            return
+        announce(self, f"Cadastros exportados: {path}")
+
+    def import_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Importar cadastros do DPS", str(Path.home()),
+                                              TRANSFER_FILTER)
+        if path:
+            self.import_from(Path(path))
+
+    def import_from(self, path: Path) -> None:
+        try:
+            bundle = read_bundle(path)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Importar cadastros", str(exc))
+            return
+        dialog = DpsImportDialog(bundle, self._transfer.plan(bundle), self)
+        if dialog.exec() == DpsImportDialog.DialogCode.Accepted:
+            self.apply_import(bundle, dialog.chosen_items())
+
+    def apply_import(self, bundle: DpsBundle, items: Sequence[ImportItem]) -> None:
+        # Substituir apaga testes: sem o backup, a importação não continua.
+        if self._backups is not None and any(item.action is ImportAction.REPLACE for item in items):
+            try:
+                self._backups.create_backup(BackupKind.BEFORE_IMPORT)
+            except BackupError as exc:
+                QMessageBox.warning(self, "Importar cadastros",
+                                    f"Nada foi importado, porque o backup falhou.\n\n{exc}")
+                return
+        result = self._transfer.apply(bundle, items)
+        self.refresh()
+        announce(self, _import_summary(result))
+        if result.dropped_tests or result.dropped_links:
+            QMessageBox.information(
+                self, "Importar cadastros",
+                f"{_import_summary(result)}\n\nFicaram de fora "
+                f"{format_number(result.dropped_tests)} testes e "
+                f"{format_number(result.dropped_links)} vínculos, porque citam bosses que não "
+                "vieram no arquivo e não existem aqui.")
+
+
+def _import_summary(result: ImportResult) -> str:
+    return (f"Importação concluída: {format_number(result.created)} novos, "
+            f"{format_number(result.replaced)} substituídos e "
+            f"{format_number(result.skipped)} pulados.")
 
 
 class RankingRow(QWidget):

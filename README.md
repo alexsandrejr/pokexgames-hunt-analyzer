@@ -189,7 +189,8 @@ A página **DPS** compara o dano dos pokémons em bosses com tempo limite. Ela n
 - **Calcular por**: seletor do Ranking, salvo em cada boss, que define de onde vem o dano de cada skill e do básico. Todos os pokémons do boss usam a mesma opção. Veja a tabela abaixo.
 - **Pokémons**: a aba **Pokémons** lista todos os cadastrados, com pesquisa e as skills do selecionado, e é onde ficam **Novo**, **Editar**, **Duplicar** e **Excluir**. Um pokémon novo nasce sem boss. No Ranking, **Editar** (ou o duplo clique) abre a edição, e **Remover** tira o pokémon do boss sem apagar o cadastro. O cadastro tem nome, observação, ataque básico, buff e skills, com elemento opcional no básico e em cada skill (usado só no cálculo por Efetividade). O dano não é digitado no cadastro: lá ele só aparece, conforme o dummy escolhido em **Ver dano no dummy**. Cada skill tem forma (Área ou Target), alcance (Melee ou Ranged), dano, recarga e aproveitamento. **Duplicar** serve para comparar builds, ou o mesmo pokémon com danos diferentes em dois bosses.
 - **Ranking**: só os pokémons anexados ao boss, com dano total e DPS no tempo limite, com barra proporcional ao 1º colocado. À direita aparece quanto cada skill, o básico e o buff somam ao total.
-- **Testes**: na aba **Pokémons**, o botão **Testes** registra os danos medidos nos dummies do jogo (Neutro ou um dos 18 elementos) e dentro dos bosses cadastrados (**Boss: nome**). Cada skill e o ataque básico podem ter um teste por dummy e por boss, com até 3 danos e a média dos preenchidos. O que não foi testado onde o boss pede conta como **0** e aparece com o aviso "sem teste", sem usar outro teste como substituto. Excluir um boss apaga os testes feitos nele. Tudo é gravado ao trocar de skill e ao fechar a janela. **Duplicar** copia os testes, e remover uma skill apaga os dela.
+- **Testes**: na aba **Pokémons**, o botão **Testes** registra os danos medidos nos dummies do jogo (Neutro ou um dos 18 elementos) e dentro dos bosses cadastrados (**Boss: nome**). Cada skill e o ataque básico podem ter um teste por dummy e por boss, com até 3 danos e a média dos preenchidos. O que não foi testado onde o boss pede conta como **0** e aparece com o aviso "sem teste", sem usar outro teste como substituto. Excluir um boss apaga os testes feitos nele. Tudo é gravado ao trocar de skill e ao fechar a janela. **Duplicar** copia os testes com as datas deles, e remover uma skill apaga os dela. Cada teste mostra as datas de **Cadastrado** e **Modificado**, para perceber quando uma medição está desatualizada. Modificado só muda quando os danos mudam; trocar o dummy ou o boss de um teste cria um teste novo. Testes de antes da versão 1.6.0 ficam sem data de cadastro.
+- **Exportar e importar**: **Exportar cadastros** abre uma lista para marcar bosses e pokémons (todos começam marcados) e salva um arquivo `.json` para enviar a um colega ou guardar. **Importar cadastros** valida o arquivo inteiro e mostra uma prévia, sem gravar nada até a confirmação. Cadastro novo entra por padrão. Em nome repetido, o padrão é **Pular**, e dá para escolher **Substituir** ou **Criar cópia** (`Nome (importado)`). Veja [Exportar e importar cadastros](#exportar-e-importar-cadastros).
 - **Ajustes**: turno do ataque básico (2,5 s, vale para todos os pokémons) e os aproveitamentos sugeridos em novos cadastros (Target + Melee 75%, demais skills 100%, ataque básico 75%).
 
 De onde vem o dano, conforme o **Calcular por** do boss:
@@ -213,6 +214,24 @@ DPS           = total ÷ tempo
 ```
 
 Cada pokémon tem no máximo um buff. O bônus na próxima magia usa a magia que mais rende, supondo que ela é guardada para o buff, já considerando a efetividade. Boost e held não entram na conta: anote na observação as condições do teste.
+
+### Exportar e importar cadastros
+
+O arquivo traz, de cada boss, o nome, o tempo limite, o Calcular por, o dummy, os elementos e a efetividade; de cada pokémon, a ficha, a observação, os testes com as datas e os nomes dos bosses em que está anexado. Os **Ajustes** da página são de cada pessoa e ficam de fora. Os bosses são citados pelo nome, sem diferenciar maiúsculas, porque os ids mudam de um banco para outro.
+
+| Escolha | Boss | Pokémon |
+|---|---|---|
+| **Pular** | Não muda nada. Os pokémons do arquivo que citam esse nome são anexados ao boss daqui | Não muda nada |
+| **Substituir** | Troca tempo, Calcular por, dummy, elementos e efetividade. Mantém os pokémons anexados e os testes | Troca a ficha, a observação e **todos os testes** pelos do arquivo. Mantém o id e os bosses que já tinha, e soma os do arquivo |
+| **Criar cópia** | Cria `Nome (importado)`, e os pokémons do arquivo apontam para a cópia | Cria `Nome (importado)` |
+
+Regras da importação:
+
+- Com alguma substituição, o app faz antes um backup "Antes de importar". Se o backup falhar, nada é importado.
+- Tudo é gravado em uma única transação: se algo falhar, nada muda.
+- Um teste feito em um boss que não veio no arquivo e não existe no banco fica de fora, assim como o vínculo com esse boss. O app informa quantos ficaram de fora.
+- Os testes mantêm as datas originais, porque a medição continua sendo a mesma.
+- Arquivo de uma versão mais nova do formato é recusado, com uma mensagem.
 
 ## Funcionalidades
 
@@ -278,6 +297,7 @@ As preferências ficam em `data/settings.json` (não versionado). Se o arquivo e
 | Tema | Escuro ou claro. Aplicado ao reiniciar; o botão **Reiniciar agora** faz isso na hora |
 | Formato de números | `1.234.567,89` (pt-BR) ou `1,234,567.89` (en-US). Vale na hora para as telas, os valores digitados nos filtros e o CSV (pt-BR: `;` e vírgula decimal; en-US: `,` e ponto) |
 | Banco de dados | **Usar outro banco…** abre um arquivo existente ou cria um novo; **Voltar ao banco padrão** volta para `data/hunts.db`. Aplicado ao reiniciar. A variável `PXG_HUNTS_DB` tem prioridade |
+| Atualizações | **Verificar se há versão nova ao abrir o aplicativo** (ligado por padrão) e **Verificar agora**. Veja [Atualização do programa](#atualização-do-programa) |
 | Backup automático | Ao abrir o app, no máximo um por dia (e só se houver Hunts), mantendo os últimos N (padrão 10) |
 
 **Backups** ficam em `backups/`, ao lado do banco (`data/backups/` no padrão). São cópias consistentes feitas pela API de backup do SQLite, e podem ser criadas com o app aberto.
@@ -289,6 +309,20 @@ As preferências ficam em `data/settings.json` (não versionado). Se o arquivo e
 ### Atualização do banco
 
 O esquema tem versão (`PRAGMA user_version`). Ao abrir um banco de uma versão anterior, o app faz um backup "Antes de atualizar" e aplica as migrações pendentes. Bancos criados por uma versão **mais nova** do app são recusados, com uma mensagem, para evitar perda de dados.
+
+## Atualização do programa
+
+No `.exe`, o app consulta o último release do GitHub 3 segundos depois de abrir, sem travar a janela. Sem internet, nada aparece. Se houver versão nova, a janela mostra as novidades e **Atualizar agora**: nada é instalado sem confirmação. Rodando pelo código-fonte, o app não verifica ao abrir, e **Verificar agora** oferece só o link para a página.
+
+1. A versão atual baixa o `.zip` para `updates/`, na pasta de dados, e confere o tamanho e o SHA-256 informados pelo GitHub.
+2. Ela extrai o pacote, abre o `.exe` novo com `--apply-update <pasta> <pid>` e fecha.
+3. O `.exe` novo espera a versão atual fechar, copia os arquivos para dentro da pasta do programa, troca os antigos pelos novos e abre o programa. Se algo falhar, devolve os antigos.
+
+Só os arquivos que vêm no pacote são trocados: a pasta `data` do modo portátil e outros arquivos ao lado do `.exe` ficam intactos. Abrir uma versão nova limpa o que sobrou em `updates/`. O banco é migrado ao abrir, com o backup de sempre.
+
+**Para publicar uma versão:** gere o `.zip` com `scripts/build_exe.py`, que também testa a instalação de uma atualização com o executável gerado, e anexe-o a um release com a tag `vX.Y.Z`. O app só oferece a instalação se o arquivo se chamar `PokeXGames-Hunt-Analyzer-X.Y.Z-windows.zip`, se o release não for rascunho nem pré-lançamento e se a tag for maior que a versão instalada. Publicar um release, portanto, oferece a atualização a todos.
+
+Quem está em uma versão anterior à 1.6.0 precisa baixar a 1.6.0 manualmente uma vez, porque as versões antigas não têm o atualizador.
 
 ## Estrutura
 
@@ -323,7 +357,9 @@ pokexgames-hunt-analyzer/
 │   │   ├── backup_service.py    # Backup, rotação e restauração do banco
 │   │   ├── dps_calculator.py    # Conta do dano estimado (funções puras)
 │   │   ├── dps_service.py       # Bosses, pokémons e ranking da página DPS
+│   │   ├── dps_transfer.py      # Exportar e importar os cadastros do DPS
 │   │   ├── settings_service.py  # Preferências (data/settings.json)
+│   │   ├── update_service.py    # Verificar, baixar e instalar versões do GitHub
 │   │   ├── statistics_service.py# Totais, médias, taxas, métricas e rankings
 │   │   └── dto.py               # Objetos trocados entre serviços e interface
 │   ├── ui/
@@ -336,7 +372,8 @@ pokexgames-hunt-analyzer/
 │   │   ├── filters/             # Estado do filtro + painel de filtros
 │   │   ├── dashboard/           # Página Início
 │   │   ├── bosses/              # Sessões de cada tipo de boss (Resumo e Lista)
-│   │   ├── dps/                 # Página DPS (abas Ranking e Pokémons, cadastro e testes)
+│   │   ├── dps/                 # Página DPS (abas Ranking e Pokémons, cadastro, testes, exportar e importar)
+│   │   ├── update/              # Janela de versão nova, verificação e instalação
 │   │   ├── hunts/               # Lista de Hunts, detalhes, comparação e colar JSON
 │   │   ├── items/               # Páginas Itens e Inimigos
 │   │   ├── prices/              # Página Preços
@@ -379,7 +416,7 @@ $env:PXG_HUNTS_DB = "C:\caminho\outro.db"; python main.py
 | `dps_boss_effectiveness` | `boss_id`, `element`, `level` (só o que difere de Normal) | (`boss_id`, `element`) |
 | `dps_pokemons` | `name`, `note`, ataque básico (`basic_efficiency`, `basic_element`) e buff (`buff_*`) | — |
 | `dps_skills` | `pokemon_id`, `position`, `name`, `shape`, `reach`, `cooldown`, `efficiency`, `element` | `pokemon_id` |
-| `dps_damage_tests` | `pokemon_id`, `skill_id` (vazio = ataque básico), `dummy` (`boss` em teste dentro do boss), `boss_id`, `damage_1` a `damage_3` | `pokemon_id`, `skill_id`, `boss_id` |
+| `dps_damage_tests` | `pokemon_id`, `skill_id` (vazio = ataque básico), `dummy` (`boss` em teste dentro do boss), `boss_id`, `damage_1` a `damage_3`, `created_at` (vazio = anterior ao registro de datas), `updated_at` (vazio = nunca modificado) | `pokemon_id`, `skill_id`, `boss_id` |
 | `dps_boss_pokemons` | `boss_id`, `pokemon_id` (quem pode lutar contra cada boss) | (`boss_id`, `pokemon_id`), `pokemon_id` |
 | `dps_settings` | Turno do básico, aproveitamentos sugeridos e `last_boss_id` | — |
 
