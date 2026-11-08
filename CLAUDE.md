@@ -125,7 +125,7 @@ Código: `rust/core/src/dps/calculator.rs` (conta pura), `service.rs` (cadastro 
 ## Estado em 2026-11-08
 
 **Código**
-- A 2.0.0 (Rust) está pronta na branch `rust`, sem commit e sem release. O `.zip` testado está em `rust/dist/`. O corte terminou: o Python foi apagado, e o README e este arquivo descrevem a base em Rust. Faltam o commit, o merge na `main` e o release, só quando o dono pedir.
+- A 2.0.0 (Rust) está na `main` (commit `7630fd8`) e publicada no GitHub com o `.zip` (2026-11-08). Quem tem a 1.6.0 recebe a oferta de atualização ao abrir. O Python foi apagado, e o README e este arquivo descrevem a base em Rust.
 - Foi testada a atualização de uma 1.6.0 instalada (o `.exe` de verdade, com uma cópia do banco real) para a 2.0.0, pelo código de atualização da 1.6.0, sem passar pelo GitHub.
 - Ainda não foram conferidos à mão os fluxos com diálogos nativos: PDF pelo menu, Excluir pokémon e boss, Exportar e Importar cadastros, Remover preço, Usar outro banco, Salvar cópia e Restaurar de arquivo. O dono deixou para o teste final.
 - Revisão do DPS (2026-11-03): nenhuma fórmula errada. Sugestões aguardando o dono: avisar testes muito diferentes entre si, marcar empates e fichas incompletas no ranking, avisar pokémon sem básico, aceitar dano 0 dentro do boss e comparar a estimativa com o dano real.

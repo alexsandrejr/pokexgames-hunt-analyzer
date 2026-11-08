@@ -4,11 +4,10 @@ Plano para reescrever o app em Rust com [Tauri](https://tauri.app). O trabalho a
 
 ## Onde paramos (2026-11-08, corte)
 
-- **O corte terminou**, menos o commit, o merge e o release, que só acontecem quando o dono pedir. Nada foi commitado: a pasta `rust/` e este arquivo continuam sem versionar, e o código Python apagado aparece como removido no `git status`.
+- **A migração terminou** em 2026-11-08: a 2.0.0 está na `main` e publicada no GitHub.
 - **Feito no corte:** a atualização real de uma 1.6.0 instalada para a 2.0.0, a última conferência de paridade, o banco real copiado para a pasta do `.exe`, o código Python apagado, o `README.md`, o `CLAUDE.md` e o `.gitignore` reescritos para a base em Rust, e o `Ctrl+Q` que faltava.
 - **Próximos passos:**
   1. As conferências da lista **Falta** da fase 4, que dependem dos diálogos nativos do Windows. O dono as deixou para o teste final.
-  2. Commit, merge da `rust` na `main` e release da 2.0.0 com o `.zip` de `node tools/build_exe.mjs`, só quando o dono pedir.
 - As dicas para testar na janela estão no `CLAUDE.md`, em "Capturas e testes na janela".
 
 ## Decisões
@@ -168,7 +167,7 @@ Para clicar e preencher a janela por script, sem mexer no mouse, abra o app com 
 - [x] **Código Python apagado:** `app/`, `tests/`, `scripts/`, `resources/`, `main.py` e os `requirements`. O código continua no git (`main` e o commit `b9b194e`). A `imports/` ficou, com os JSONs do dono e o exemplo. A pasta `rust/` continua no lugar (escolha do dono).
 - [x] **Ferramentas de paridade apagadas** (escolha do dono): os `.py` de `rust/tools` e o `paridade.sh`. Como a pasta `rust/` nunca tinha sido commitada, elas **não** estão no histórico do git. Os exemplos em Rust (`dump_db`, `stats_report` etc.) e as fixtures geradas por elas continuam. As seções das fases 1 a 3 citam essas ferramentas como registro do que foi conferido.
 - [x] `README.md`, `CLAUDE.md` e `.gitignore` reescritos para a base em Rust. Entraram o `Ctrl+Q`, que fecha o app como no Python, e a verificação de atualização ao abrir só no `.exe`, também como no Python.
-- [ ] Commit, merge da branch `rust` na `main` e release da 2.0.0, só quando o dono pedir.
+- [x] Commit `7630fd8`, merge (direto) da branch `rust` na `main`, push das duas e release [v2.0.0](https://github.com/alexsandrejr/pokexgames-hunt-analyzer/releases/tag/v2.0.0) com o `.zip` testado (SHA-256 `2304086e…edb5b`), pedidos pelo dono em 2026-11-08. Conferido pela API: a 1.6.0 enxerga a 2.0.0 como instalável.
 
 ## Pontos de atenção
 
