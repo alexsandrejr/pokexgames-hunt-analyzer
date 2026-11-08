@@ -1,0 +1,23 @@
+[package]
+name = "pxg-core"
+description = "Regras de negócio e banco do PokeXGames Hunt Analyzer, sem interface."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono.workspace = true
+log = { version = "0.4.35", features = ["std"] }
+regex.workspace = true
+rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
+rust_xlsxwriter = { version = "0.96.0", features = ["chrono"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11.0"
+ureq = "3.5.1"
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
+zip = { version = "7.3.0", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+calamine = "0.35.0"
+tempfile = "3.27.0"

@@ -4,78 +4,69 @@ Aplicação desktop para **armazenar, organizar e analisar** as sessões de Hunt
 
 Cada arquivo importado vira um **registro histórico permanente** no banco SQLite local, com seus inimigos derrotados, drops e supplies em tabelas relacionadas. O JSON original é sempre preservado por completo (um TSV é guardado já convertido para JSON, com todas as seções), então campos novos que o Analyzer venha a adicionar não se perdem.
 
-> **Status: Fases 1 a 4 concluídas.** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Início com gráficos, Relatórios, relatórios por item e por inimigo, sessões por tipo de boss (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), recompensas do chat ("Você recebeu:") somadas às sessões, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), página DPS (ranking de pokémons por boss com tempo limite, calculado por Efetividade, Dummy ou Dano real), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
+> **Versão 2.0.0, em Rust.** A versão 1.x era em Python e foi reescrita em Rust (Tauri), com as mesmas funcionalidades, o mesmo banco e a mesma atualização automática. O histórico da migração está em [docs/migracao-rust.md](docs/migracao-rust.md).
+>
+> **Funcionalidades:** Importação (arquivos, pastas, arrastar e soltar ou texto colado), duplicidade, filtros combináveis e pesquisa avançada, Início com gráficos, Relatórios, relatórios por item e por inimigo, sessões por tipo de boss (Rifts, bosses de Energia Vermelha e Azul e Terrors, separados das Hunts), recompensas do chat ("Você recebeu:") somadas às sessões, comparação de Hunts, preços personalizados de itens (recalculam Raw gains, Supplies e Profit de todas as Hunts), página DPS (ranking de pokémons por boss com tempo limite, calculado por Efetividade, Dummy ou Dano real), exportação (CSV, Excel, PDF, JSON), backup e restauração, tema claro/escuro e formato de números configurável.
 
 ## Baixar
 
-**[⬇ Baixar a versão mais recente (Windows)](https://github.com/alexsandrejr/pokexgames-hunt-analyzer/releases/latest)**: baixe o arquivo `.zip`, extraia e abra `PokeXGames Hunt Analyzer.exe`. Não precisa instalar Python. O `LEIA-ME.txt` dentro do `.zip` explica o resto.
+**[⬇ Baixar a versão mais recente (Windows)](https://github.com/alexsandrejr/pokexgames-hunt-analyzer/releases/latest)**: baixe o arquivo `.zip`, extraia e abra `PokeXGames Hunt Analyzer.exe`. Não precisa instalar nada: o programa usa o Microsoft Edge WebView2, que já vem no Windows 11 e no Windows 10 atualizado. O `LEIA-ME.txt` dentro do `.zip` explica o resto.
 
 ## Tecnologias
 
 | Tecnologia | Uso |
 |---|---|
-| Python 3.12 | Linguagem principal |
-| PySide6 (Qt 6) | Interface gráfica |
-| SQLAlchemy 2 | ORM sobre o SQLite |
-| SQLite | Banco de dados local (`data/hunts.db`) |
-| pyqtgraph | Gráficos |
-| openpyxl | Exportação para Excel (.xlsx) |
-| unittest | Testes automatizados (biblioteca padrão) |
-| PyInstaller | Geração do executável (só para quem gera o build) |
+| Rust (edição 2024) | Regras, banco, importação, exportação e atualização (`rust/core`) |
+| Tauri 2 | Janela do programa e ligação entre o Rust e as telas (`rust/app/src-tauri`) |
+| Svelte 5 + TypeScript (Vite) | Telas (`rust/app/src`), com os gráficos desenhados em SVG |
+| SQLite (rusqlite) | Banco de dados local (`hunts.db`) |
+| rust_xlsxwriter | Exportação para Excel (.xlsx) |
+| WebView2 | Mostra as telas e imprime o PDF da exportação |
 
-## Instalação
+## Instalação (para desenvolver)
 
-Pré-requisito: Python 3.12 (verifique com `py -0p`).
+Pré-requisitos:
 
-```powershell
-python -m venv .venv
-```
+- Rust, pelo [rustup](https://rustup.rs). O `cargo` fica em `%USERPROFILE%\.cargo\bin`.
+- Node.js 20 ou mais novo.
 
-Ativação no Windows:
-
-```bat
-.venv\Scripts\activate
-```
-
-> No PowerShell use `.venv\Scripts\Activate.ps1`. Se a política de execução bloquear, rode diretamente `.venv\Scripts\python.exe`.
-
-Instalação das dependências:
+Dependências das telas, uma vez:
 
 ```powershell
-pip install -r requirements.txt
+cd rust/app
+npm install
 ```
 
 ## Execução
 
-A partir da raiz do projeto, com o ambiente ativado:
+A partir de `rust/app`:
 
 ```powershell
-python main.py
+npx tauri dev
 ```
 
-Na primeira execução o banco `data/hunts.db` é criado automaticamente.
+Em desenvolvimento, os dados ficam em `rust/data/` (banco, backups, configurações e logs), criados na primeira execução. Para abrir outro banco, defina `PXG_HUNTS_DB` (veja [Banco de dados](#banco-de-dados)).
 
 ## Gerar o executável (para distribuir)
 
-Com o ambiente ativado, instale as ferramentas de build uma vez e rode o script:
+A partir de `rust/`:
 
 ```powershell
-pip install -r requirements-dev.txt
-python scripts/build_exe.py
+node tools/build_exe.mjs
 ```
 
-O script gera o ícone e os metadados do `.exe`, empacota com o PyInstaller, **abre o executável gerado para testá-lo** (`--smoke-test`, com dados temporários, sem tocar nos seus) e compacta tudo:
+O script leva de 7 a 13 minutos. Ele confere se a versão é a mesma no `tauri.conf.json` e no `Cargo.toml`, compila, **abre o executável gerado para testá-lo** (`--smoke-test`, com dados temporários, sem tocar nos seus) e **testa a instalação de uma atualização** a partir do próprio `.zip`, por cima de uma cópia antiga. Se um teste falhar, o `.zip` é apagado.
 
 | Saída | Para quê |
 |---|---|
-| `dist/PokeXGames Hunt Analyzer/PokeXGames Hunt Analyzer.exe` | Executável (pasta com as bibliotecas ao lado) |
-| `dist/PokeXGames-Hunt-Analyzer-<versão>-windows.zip` | **O arquivo para enviar aos colegas**, com um `LEIA-ME.txt` |
+| `rust/dist/PokeXGames Hunt Analyzer/PokeXGames Hunt Analyzer.exe` | Executável, com o `LEIA-ME.txt` ao lado |
+| `rust/dist/PokeXGames-Hunt-Analyzer-<versão>-windows.zip` | **O arquivo para enviar aos colegas** |
 
-`python scripts/build_exe.py --onefile` gera um único `.exe`. É mais simples de enviar, mas cada abertura demora alguns segundos (ele se descompacta a cada vez) e antivírus costumam desconfiar mais desse formato. Por isso o padrão é pasta + `.zip`.
+`node tools/build_exe.mjs --skip-test` pula os testes; não publique esse `.zip`.
 
-**No executável**, os dados de cada usuário ficam em `%LOCALAPPDATA%\PokeXGames Hunt Analyzer` (banco, backups, configurações, `imports/` e `logs/app.log`). Atualizar o programa (trocar a pasta pela versão nova) não apaga nada. **Modo portátil:** se existir uma pasta `data` ao lado do `.exe`, tudo passa a ficar nela.
+**No executável**, os dados de cada usuário ficam em `%LOCALAPPDATA%\PokeXGames Hunt Analyzer` (banco, backups, configurações, `imports/` e `logs/app.log`). Atualizar o programa não apaga nada. **Modo portátil:** se existir uma pasta `data` ao lado do `.exe`, tudo passa a ficar nela. O cache do WebView2 fica em `%LOCALAPPDATA%\pokexgames.hunt-analyzer`, também no modo portátil.
 
-Erros inesperados são gravados em `logs/app.log` e mostrados numa mensagem com o caminho do arquivo, que o usuário pode enviar para você.
+Erros inesperados (das telas e do Rust) são gravados em `logs/app.log`, que o usuário pode enviar para você.
 
 > O `.exe` não tem assinatura digital, então o Windows SmartScreen avisa na primeira execução ("Mais informações" → "Executar assim mesmo"). O `LEIA-ME.txt` explica isso aos colegas.
 
@@ -97,7 +88,7 @@ Ao voltar a Sessões ou Análise, abre a última página usada ali. Nas listas d
 
 1. No jogo, exporte a sessão pelo Analyzer (é gerado um arquivo `.json`).
 2. No aplicativo, clique em **Importar → Arquivos JSON/TSV…** (`Ctrl+I`), na barra lateral.
-3. Selecione um ou **vários** arquivos. A pasta `imports/` do projeto é aberta por padrão e contém um exemplo (`exemplo_hunt_1080.json`).
+3. Selecione um ou **vários** arquivos. A pasta `imports/` dos dados é aberta por padrão. O repositório tem um exemplo em `imports/exemplo_hunt_1080.json`.
 4. As Hunts importadas aparecem selecionadas em **Sessões → Hunts**. Dê **duplo clique** (ou `Enter`) para abrir os detalhes.
 
 ### Importar vários de uma vez
@@ -242,7 +233,7 @@ Regras da importação:
 - **Comparação**: selecione 2 ou mais Hunts (`Ctrl`+clique ou `Shift`+clique) e clique em **Comparar**. As métricas ficam nas linhas e as Hunts nas colunas, lado a lado, em ordem cronológica e sem ranking. Pode ser exportada.
 - **Itens** e **Inimigos**: escolha um drop, supply ou inimigo para ver quantidade total, valor total, presença (em quantas Hunts apareceu), média por Hunt e por hora, valor médio, maior e menor quantidade, gráfico por Hunt e a lista das Hunts em que apareceu. As médias consideram as Hunts em que o item apareceu; no gráfico, as Hunts em que ele não apareceu ficam como barras vazias.
 - **Relatórios**: tabela de métricas (duração, kills, profit, supplies, raw gains, experience, damage dealt/taken) com total, média por Hunt, mínimo, máximo, **média das taxas** e **total ÷ tempo total**, mais rankings (top 25) de drops por valor, supplies por custo e inimigos por quantidade.
-- **Detalhes da Hunt**: abas *Resumo*, *Enemies*, *Drops* (com valor total, quantidade e origem: Analyzer ou [chat](#recompensas-do-chat)), *Supplies* (com custo total), *Gráficos* (inimigos, drops e supplies em barras ordenadas) e *JSON Original* (formatado, somente leitura, com botão de cópia). Várias Hunts podem ficar abertas ao mesmo tempo.
+- **Detalhes da Hunt**: abas *Resumo*, *Enemies*, *Drops* (com valor total, quantidade e origem: Analyzer ou [chat](#recompensas-do-chat)), *Supplies* (com custo total), *Gráficos* (inimigos, drops e supplies em barras ordenadas) e *JSON Original* (formatado, somente leitura, com botão de cópia). Abre num diálogo por cima da lista, uma sessão por vez.
 - **DPS**: ranking dos pokémons em um boss com tempo limite, com cadastro e testes de dano. Veja [DPS](#dps).
 - **Preços**: define um preço próprio para qualquer item, que vale para todas as Hunts e recalcula Raw gains, Supplies e Profit.
 - **Configurações**: tema claro ou escuro, formato de números, banco de dados em uso e backups. Veja [Configurações e backup](#configurações-e-backup).
@@ -290,17 +281,17 @@ O botão **Exportar** (menu com os formatos) existe nas listas de sessões, em R
 
 ## Configurações e backup
 
-As preferências ficam em `data/settings.json` (não versionado). Se o arquivo estiver ausente ou corrompido, o app usa os padrões.
+As preferências ficam em `settings.json`, na pasta dos dados. Se o arquivo estiver ausente ou corrompido, o app usa os padrões.
 
 | Opção | Efeito |
 |---|---|
-| Tema | Escuro ou claro. Aplicado ao reiniciar; o botão **Reiniciar agora** faz isso na hora |
+| Tema | Escuro ou claro, aplicado na hora |
 | Formato de números | `1.234.567,89` (pt-BR) ou `1,234,567.89` (en-US). Vale na hora para as telas, os valores digitados nos filtros e o CSV (pt-BR: `;` e vírgula decimal; en-US: `,` e ponto) |
-| Banco de dados | **Usar outro banco…** abre um arquivo existente ou cria um novo; **Voltar ao banco padrão** volta para `data/hunts.db`. Aplicado ao reiniciar. A variável `PXG_HUNTS_DB` tem prioridade |
+| Banco de dados | **Usar outro banco…** abre um arquivo existente ou cria um novo; **Voltar ao banco padrão** volta para o `hunts.db` da pasta dos dados. Aplicado ao reiniciar, com o botão **Reiniciar agora**. A variável `PXG_HUNTS_DB` tem prioridade |
 | Atualizações | **Verificar se há versão nova ao abrir o aplicativo** (ligado por padrão) e **Verificar agora**. Veja [Atualização do programa](#atualização-do-programa) |
 | Backup automático | Ao abrir o app, no máximo um por dia (e só se houver Hunts), mantendo os últimos N (padrão 10) |
 
-**Backups** ficam em `backups/`, ao lado do banco (`data/backups/` no padrão). São cópias consistentes feitas pela API de backup do SQLite, e podem ser criadas com o app aberto.
+**Backups** ficam em `backups/`, ao lado do banco. São cópias consistentes feitas pela API de backup do SQLite, e podem ser criadas com o app aberto.
 
 - **Fazer backup agora** grava na pasta de backups; **Salvar cópia em…** grava onde você escolher (ex.: nuvem ou pendrive).
 - **Restaurar selecionado** / **Restaurar de arquivo…**: o arquivo é validado antes (precisa ser um banco deste app), e o banco atual é **sempre** salvo como backup "Antes de restaurar" antes de ser substituído. Backups de versões antigas são atualizados automaticamente.
@@ -312,7 +303,7 @@ O esquema tem versão (`PRAGMA user_version`). Ao abrir um banco de uma versão 
 
 ## Atualização do programa
 
-No `.exe`, o app consulta o último release do GitHub 3 segundos depois de abrir, sem travar a janela. Sem internet, nada aparece. Se houver versão nova, a janela mostra as novidades e **Atualizar agora**: nada é instalado sem confirmação. Rodando pelo código-fonte, o app não verifica ao abrir, e **Verificar agora** oferece só o link para a página.
+No `.exe`, o app consulta o último release do GitHub 3 segundos depois de abrir, sem travar a janela. Sem internet, nada aparece. Se houver versão nova, a janela mostra as novidades e **Atualizar agora**: nada é instalado sem confirmação. Em desenvolvimento (`npx tauri dev`), o app não verifica ao abrir, e **Verificar agora** oferece só o link para a página.
 
 1. A versão atual baixa o `.zip` para `updates/`, na pasta de dados, e confere o tamanho e o SHA-256 informados pelo GitHub.
 2. Ela extrai o pacote, abre o `.exe` novo com `--apply-update <pasta> <pid>` e fecha.
@@ -320,89 +311,54 @@ No `.exe`, o app consulta o último release do GitHub 3 segundos depois de abrir
 
 Só os arquivos que vêm no pacote são trocados: a pasta `data` do modo portátil e outros arquivos ao lado do `.exe` ficam intactos. Abrir uma versão nova limpa o que sobrou em `updates/`. O banco é migrado ao abrir, com o backup de sempre.
 
-**Para publicar uma versão:** gere o `.zip` com `scripts/build_exe.py`, que também testa a instalação de uma atualização com o executável gerado, e anexe-o a um release com a tag `vX.Y.Z`. O app só oferece a instalação se o arquivo se chamar `PokeXGames-Hunt-Analyzer-X.Y.Z-windows.zip`, se o release não for rascunho nem pré-lançamento e se a tag for maior que a versão instalada. Publicar um release, portanto, oferece a atualização a todos.
+**Para publicar uma versão:** mude a versão em `rust/Cargo.toml` (`[workspace.package]`) e em `rust/app/src-tauri/tauri.conf.json`, gere o `.zip` com `node tools/build_exe.mjs`, que também testa a instalação de uma atualização a partir dele, e anexe-o a um release com a tag `vX.Y.Z`. O app só oferece a instalação se o arquivo se chamar `PokeXGames-Hunt-Analyzer-X.Y.Z-windows.zip`, se o release não for rascunho nem pré-lançamento e se a tag for maior que a versão instalada. Publicar um release, portanto, oferece a atualização a todos.
 
-Quem está em uma versão anterior à 1.6.0 precisa baixar a 1.6.0 manualmente uma vez, porque as versões antigas não têm o atualizador.
+Quem está em uma versão anterior à 1.6.0 precisa baixar a versão nova manualmente uma vez, porque as versões antigas não têm o atualizador. A 1.6.0 (em Python) se atualiza sozinha para a 2.0.0 (em Rust): o `.exe` novo aceita o mesmo `--apply-update` e apaga a pasta `_internal` que sobrava do Python.
 
 ## Estrutura
 
 ```text
 pokexgames-hunt-analyzer/
-├── main.py                      # Ponto de entrada (--smoke-test: abre, visita as telas e fecha)
-├── scripts/
-│   ├── build_exe.py             # Gera o executável + .zip para distribuir
-│   └── LEIA-ME.txt              # Instruções que vão dentro do .zip
-├── app/
-│   ├── application.py           # Montagem: banco + serviços + tema + janela
-│   ├── config.py                # Caminhos por modo (desenvolvimento, .exe, portátil)
-│   ├── logging_setup.py         # Log em arquivo e aviso de erros inesperados
-│   ├── database/
-│   │   ├── database.py          # Engine, sessões, criação do esquema
-│   │   ├── models.py            # HuntSession, EnemyDefeated, Drop, Supply, ItemPrice, ChatReward, tabelas Dps*
-│   │   ├── migrations.py        # Versões do esquema e migrações
-│   │   ├── query_filters.py     # Tradução de HuntFilter em condições SQL
-│   │   └── repositories.py      # TODAS as consultas SQL ficam aqui
-│   ├── services/
-│   │   ├── json_importer.py     # Leitura, validação e extração do JSON (sem banco)
-│   │   ├── hunt_service.py      # Importação (arquivo ou texto colado), duplicidade, consulta, exclusão
-│   │   ├── json_files.py        # Salva JSON colado como arquivo (nome sugerido, sem sobrescrever)
-│   │   ├── chat_rewards.py      # Lê "Você recebeu: ..." do chat e aproxima os nomes dos itens
-│   │   ├── categories.py        # Categorias: Hunt, Rift, Energia Vermelha/Azul, Terror
-│   │   ├── filters.py           # HuntFilter e condições (sem SQL, sem interface)
-│   │   ├── advanced_search.py   # Pesquisa avançada em texto → condições do filtro
-│   │   ├── entity_report.py     # Relatório de um item/inimigo ao longo das Hunts
-│   │   ├── rates.py             # Taxas por hora/segundo
-│   │   ├── export_service.py    # Escrita de CSV, Excel, PDF e JSON
-│   │   ├── export_documents.py  # Tabelas exportáveis (Hunts, relatório, comparação…)
-│   │   ├── backup_service.py    # Backup, rotação e restauração do banco
-│   │   ├── dps_calculator.py    # Conta do dano estimado (funções puras)
-│   │   ├── dps_service.py       # Bosses, pokémons e ranking da página DPS
-│   │   ├── dps_transfer.py      # Exportar e importar os cadastros do DPS
-│   │   ├── settings_service.py  # Preferências (data/settings.json)
-│   │   ├── update_service.py    # Verificar, baixar e instalar versões do GitHub
-│   │   ├── statistics_service.py# Totais, médias, taxas, métricas e rankings
-│   │   └── dto.py               # Objetos trocados entre serviços e interface
-│   ├── ui/
-│   │   ├── main_window.py       # QMainWindow + seções, sub-navegação e atalhos
-│   │   ├── sidebar.py           # Barra lateral com o botão Importar
-│   │   ├── theme.py             # Temas escuro e claro (paleta + QSS)
-│   │   ├── icons.py             # Ícones SVG de resources/icons
-│   │   ├── import_controller.py # Fluxo de importação na interface
-│   │   ├── charts/              # Gráficos pyqtgraph (por Hunt e barras ordenadas)
-│   │   ├── filters/             # Estado do filtro + painel de filtros
-│   │   ├── dashboard/           # Página Início
-│   │   ├── bosses/              # Sessões de cada tipo de boss (Resumo e Lista)
-│   │   ├── dps/                 # Página DPS (abas Ranking e Pokémons, cadastro, testes, exportar e importar)
-│   │   ├── update/              # Janela de versão nova, verificação e instalação
-│   │   ├── hunts/               # Lista de Hunts, detalhes, comparação e colar JSON
-│   │   ├── items/               # Páginas Itens e Inimigos
-│   │   ├── prices/              # Página Preços
-│   │   ├── reports/             # Página Relatórios
-│   │   ├── settings/            # Configurações
-│   │   └── widgets/             # Tabela genérica, cards, combos, sub-navegação, botão Exportar
-│   └── utils/
-│       ├── constants.py         # Nomes e chaves do JSON do Analyzer
-│       ├── formatters.py        # 1.119.522 · 01:11:50 · 119,5 M
-│       └── validators.py        # Conversões seguras (to_int, parse_datetime…)
-├── docs/                        # Efetividade de elementos no jogo
-├── data/                        # hunts.db (não versionado)
-├── imports/                     # Pasta sugerida para os JSONs
-├── resources/icons/             # Ícones SVG
-└── tests/                       # Testes automatizados
+├── rust/
+│   ├── Cargo.toml               # Workspace e versão do programa
+│   ├── core/                    # pxg-core: regras e banco, sem nenhuma dependência do Tauri
+│   │   ├── src/
+│   │   │   ├── config.rs        # Caminhos por modo (desenvolvimento, .exe, portátil)
+│   │   │   ├── db/              # Abertura, esquema (sql/schema_models.sql) e migrações
+│   │   │   ├── hunts/           # Leitura do Analyzer (JSON e TSV), importação, filtros, pesquisa avançada, estatísticas, categorias e chat
+│   │   │   ├── dps/             # Conta do DPS, cadastro, ranking e exportar/importar cadastros
+│   │   │   ├── export/          # Documentos exportáveis e escrita de CSV, Excel e JSON (e o HTML do PDF)
+│   │   │   ├── backup.rs        # Backup, rotação e restauração
+│   │   │   ├── prices.rs        # Preços personalizados
+│   │   │   ├── settings.rs      # Preferências (settings.json)
+│   │   │   ├── update.rs        # Verificar, baixar e instalar versões do GitHub
+│   │   │   ├── logging.rs       # Log em arquivo (logs/app.log)
+│   │   │   └── format.rs, parse.rs, text.rs  # Números, datas e textos como o jogo escreve
+│   │   ├── sql/                 # DDL das tabelas
+│   │   ├── examples/            # Utilitários de linha de comando (ex.: extract_package, usado no build)
+│   │   └── tests/               # Testes do núcleo, com fixtures
+│   ├── app/
+│   │   ├── src-tauri/           # pxg-app: abertura, comandos chamados pelas telas, PDF e instalação
+│   │   ├── src/                 # Telas em Svelte: App.svelte, pages/, components/ e lib/
+│   │   └── LEIA-ME.txt          # Instruções que vão dentro do .zip
+│   └── tools/                   # build_exe.mjs, e cdp.mjs e capture_window.ps1 para testar na janela
+├── docs/                        # Efetividade dos elementos no jogo e o histórico da migração
+├── data/                        # Dados locais (não versionado)
+└── imports/                     # JSONs do Analyzer (só o exemplo é versionado)
 ```
 
-Fluxo de dependências (a interface nunca executa SQL):
+Fluxo de dependências (as telas nunca executam SQL):
 
 ```text
-UI (PySide6) → Services → Repositories → SQLAlchemy → SQLite
+Telas (Svelte) → comandos (pxg-app) → serviços (pxg-core) → repositórios → SQLite
 ```
 
 ## Banco de dados
 
-Arquivo padrão: `data/hunts.db`. Para usar outro arquivo sem alterar código, defina a variável de ambiente `PXG_HUNTS_DB`:
+Arquivo padrão: o `hunts.db` da pasta dos dados (`rust/data/` em desenvolvimento). Para usar outro arquivo sem alterar código, defina a variável de ambiente `PXG_HUNTS_DB`:
 
 ```powershell
-$env:PXG_HUNTS_DB = "C:\caminho\outro.db"; python main.py
+$env:PXG_HUNTS_DB = "C:\caminho\outro.db"; npx tauri dev
 ```
 
 | Tabela | Conteúdo | Índices |
@@ -426,29 +382,31 @@ Backups e restauração são feitos em **Configurações** (veja [Configuraçõe
 
 ## Como desenvolver
 
-Rodar todos os testes (incluindo o teste de fumaça da interface, que roda sem abrir janelas):
+A partir de `rust/`:
 
 ```powershell
-python -m unittest discover -s tests -t .
+cargo test                    # testes do núcleo e dos comandos
+cargo clippy --all-targets    # avisos
+cd app; npm run check         # tipos das telas (svelte-check)
 ```
 
-Os testes cobrem: JSON válido, inválido e incompleto; importação por arquivo e por texto colado; duplicidade (conteúdo idêntico, re-exportação, forçar importação); exclusão em cascata; persistência em arquivo; cálculos de duração, dinheiro e estatísticas; cada critério de filtro e suas combinações contra o SQLite real; pesquisa avançada; relatórios por item/inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; leitura das mensagens do chat e recompensas somadas e removidas das sessões; importação de pastas e arrastar e soltar; a conta do DPS (com a conferência da lista do colega), as três opções de Calcular por, os testes de dano e a migração dos bancos antigos; e os fluxos da interface (navegação, painel de filtros, Início, Relatórios, comparação, Itens, Inimigos, detalhes e DPS).
+Os testes cobrem: JSON e TSV válidos, inválidos e incompletos; importação por arquivo e por texto colado; duplicidade; exclusão em cascata; cálculos de duração, dinheiro e estatísticas; cada critério de filtro contra o SQLite real; pesquisa avançada; relatórios por item e inimigo; cada formato de exportação (gravado e lido de volta); migrações; backup, rotação e restauração; configurações e formato de números; recompensas do chat; a conta do DPS (com a conferência da lista do colega), as três opções de Calcular por e os testes de dano; a atualização (verificação, download, extração e troca de arquivos); o log; e a validação dos diálogos. O `--smoke-test` do build abre o programa e visita todas as páginas.
 
 ### Suportar um novo campo do Analyzer
 
-1. Adicione a coluna em `HuntSession` (`app/database/models.py`) e o atributo em `ParsedSession`.
-2. Adicione uma linha em `SESSION_FIELDS` (`app/services/json_importer.py`) com a chave do JSON e o conversor.
-3. Para bancos existentes, adicione uma `Migration` no fim de `MIGRATIONS` (`app/database/migrations.py`), por exemplo `ALTER TABLE hunt_sessions ADD COLUMN ...`. Ela é aplicada (com backup antes) na próxima abertura.
+1. Adicione a coluna em `rust/core/sql/schema_models.sql` (bancos novos) e o campo em `ParsedSession` (`rust/core/src/hunts/analyzer.rs`), na lista de campos da seção `Session`.
+2. Para bancos existentes, adicione uma `Migration` no fim de `MIGRATIONS` (`rust/core/src/db/migrations.rs`), por exemplo `ALTER TABLE hunt_sessions ADD COLUMN ...`, com SQL idempotente. Ela é aplicada (com backup antes) na próxima abertura. A próxima é a 11.
 
 Hunts antigas continuam com o JSON original completo em `raw_json`, então os valores novos podem ser reprocessados a partir dele.
 
 ### Pontos de extensão já preparados
 
-- **Filtros**: `HuntFilter` aceita qualquer número de condições de item, inimigo e métrica. Uma métrica filtrável nova é uma entrada em `Metric` (e um apelido em `METRIC_ALIASES` para a pesquisa avançada).
-- **Exportação**: qualquer tela pode exportar montando um `ExportDocument` (tabelas com valores brutos e o tipo de cada coluna) e usando `ExportButton`.
-- **Tabelas**: `RecordTable` + `Column` servem para qualquer listagem, como relatórios e comparação.
+- **Filtros**: `HuntFilter` aceita qualquer número de condições de item, inimigo e métrica. Uma métrica filtrável nova é uma entrada em `Metric` (e um apelido na pesquisa avançada).
+- **Exportação**: qualquer tela pode exportar montando um `ExportDocument` (tabelas com valores brutos e o tipo de cada coluna) no Rust e usando o `ExportButton` nas telas.
+- **Tabelas**: o componente `RecordTable` serve para qualquer listagem, com ordenação, pesquisa e seleção.
 
 ## Roadmap
 
 - Substituir uma Hunt reimportada (sessão "Active" exportada de novo com mais dados) em vez de só duplicar.
 - Assinatura digital do `.exe` (remove o aviso do SmartScreen) e instalador.
+- Mostrar uma mensagem com o caminho do log quando acontece um erro inesperado (o Python mostrava; em Rust o erro só vai para o log).

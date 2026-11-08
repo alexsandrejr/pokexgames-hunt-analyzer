@@ -1,22 +1,17 @@
-# Ambiente virtual
-.venv/
-venv/
-env/
+# Versão em Rust (ver docs/migracao-rust.md)
+rust/target/
+node_modules/
+rust/data/
+rust/imports/
+rust/app/dist/
+rust/app/src-tauri/gen/
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-build/
+# Pacote gerado pelo rust/tools/build_exe.mjs (e os antigos, do Python)
 dist/
+build/
 
-# Testes / ferramentas
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
+# Ambiente virtual do Python antigo, se ainda existir na sua cópia
+.venv/
 
 # Editores
 .vscode/
@@ -35,17 +30,8 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Preferências locais do aplicativo
-data/settings.json
-data/settings.tmp
-
-# Dados locais gerados pelo aplicativo
-data/logs/
-data/backups/
-
-# Build do executável
-build/
-dist/
+# Dados locais (banco, configurações, logs e backups)
+data/
 
 # JSONs importados/colados pelo usuário (dados pessoais); só o exemplo vai para o repositório
 imports/*

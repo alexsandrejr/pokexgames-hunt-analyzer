@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissões da janela principal e da janela de instalação da atualização.",
+  "windows": ["main", "install"],
+  "permissions": ["core:default", "core:window:allow-close", "dialog:default", "dialog:allow-ask"]
+}

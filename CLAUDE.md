@@ -1,6 +1,8 @@
 # PokeXGames Hunt Analyzer
 
-App desktop Windows (Python 3.12, PySide6, SQLAlchemy 2, SQLite, pyqtgraph) que guarda as sessões exportadas pelo Analyzer do jogo PokeXGames e compara o dano de pokémons em bosses com tempo limite. O dono joga PokeXGames, usa o app e o distribui para colegas.
+App desktop Windows (Rust, Tauri 2, Svelte 5 + TypeScript, SQLite) que guarda as sessões exportadas pelo Analyzer do jogo PokeXGames e compara o dano de pokémons em bosses com tempo limite. O dono joga PokeXGames, usa o app e o distribui para colegas.
+
+Até a 1.6.0 o app era em Python (PySide6). A 2.0.0 é a reescrita em Rust, e o Python foi apagado no corte (2026-11-08). O histórico, as decisões da migração e os pontos de atenção estão em [docs/migracao-rust.md](docs/migracao-rust.md). Para ver o código Python, use o git (`main` ou o commit `b9b194e`).
 
 Escreva em português do Brasil: conversa, interface, comentários, docstrings, commits e documentação. Nomes de identificadores ficam em inglês.
 
@@ -8,64 +10,69 @@ Consulte o [README.md](README.md) para instalação, funcionalidades de cada pá
 
 ## Comandos
 
-Use sempre o Python do `.venv`; o Python global não tem as dependências.
+O `cargo` fica em `%USERPROFILE%\.cargo\bin`; acrescente essa pasta ao `PATH` se o terminal não a tiver.
 
 ```bash
-.venv/Scripts/python.exe main.py                                 # abre o app com data/hunts.db
-.venv/Scripts/python.exe -m unittest tests.test_dps              # um módulo (o projeto usa unittest)
-.venv/Scripts/python.exe -m unittest discover -s tests -t .      # suíte completa, 10 a 12 min: rode em segundo plano
-PXG_HUNTS_DB=<cópia.db> .venv/Scripts/python.exe main.py --smoke-test   # visita todas as páginas; código 0 = ok
-.venv/Scripts/python.exe scripts/build_exe.py                    # .exe e .zip em dist/ (requirements-dev.txt)
+cd rust && cargo test                        # suíte do núcleo e dos comandos
+cd rust && cargo test -p pxg-core --test dps_calculator   # um arquivo de testes
+cd rust && cargo clippy --all-targets        # avisos: precisa sair limpo
+cd rust/app && npm run check                 # tipos das telas (svelte-check)
+cd rust/app && PXG_HUNTS_DB=<cópia.db> npx tauri dev       # abre o app em desenvolvimento
+cd rust && node tools/build_exe.mjs          # .exe e .zip em rust/dist/, já testados; 7 a 13 min: rode em segundo plano
 ```
 
 ## Antes de dar uma tarefa por concluída
 
-Rode a **suíte completa** e o `--smoke-test`, mesmo que os testes do módulo alterado passem. Em 2026-11-02, os testes do DPS passavam enquanto a página Preços estava quebrada, e só a suíte completa revelou o erro.
+Rode `cargo test`, `cargo clippy --all-targets` e `npm run check`. Para mudanças de tela, rode também o `node tools/build_exe.mjs`, que faz o `--smoke-test` no binário de release: em 2026-11-08, ele achou um laço em Preços que nenhum teste pegava.
 
-Para mudanças de tela, gere capturas e olhe nas duas larguras (1320×820 e o mínimo, 980×620) e nos dois temas. Veja [Capturas de tela](#capturas-de-tela).
+Para mudanças de tela, gere capturas e olhe nas duas larguras (1320×820 e o mínimo, 980×620) e nos dois temas. Veja [Capturas e testes na janela](#capturas-e-testes-na-janela).
 
 ## Dados reais
 
-- `data/hunts.db` é o **banco real do dono**. Teste em uma cópia, apontada por `PXG_HUNTS_DB`. O `--smoke-test` também migra o banco que abrir, então vale a mesma regra.
-- Abrir o app migra o banco, com backup automático em `data/backups/`. Um banco migrado é recusado por versões mais antigas (`SchemaTooNewError`).
-- O `.exe` usa outro banco, em `%LOCALAPPDATA%\PokeXGames Hunt Analyzer`. O banco de lá não tem as sessões do dono.
+- O dono usa o `.exe`, com o banco real em `%LOCALAPPDATA%\PokeXGames Hunt Analyzer\hunts.db` (copiado de `data/hunts.db` em 2026-11-08). **Nunca abra esse banco em teste.** Teste em uma cópia, numa pasta temporária, apontada por `PXG_HUNTS_DB`.
+- `data/` na raiz é a cópia antiga do Python (banco e backups), fora do git. Também não teste nele.
+- Em desenvolvimento, o app usa `rust/data/` (banco, configurações, logs e backups).
+- Abrir o app migra o banco, com backup automático em `backups/`, ao lado dele. Um banco migrado é recusado por versões mais antigas (`Error::SchemaTooNew`).
 
 ## Arquitetura
 
 ```text
-UI (PySide6) → Services → Repositories → SQLAlchemy → SQLite
+Telas (Svelte, rust/app/src) → comandos (pxg-app, rust/app/src-tauri) → serviços (pxg-core) → repositórios → SQLite
 ```
 
-- `app/services/`: regras de negócio, sem importar Qt. Lançam `ValueError` com mensagem em português, pronta para mostrar ao usuário.
-- `app/database/repositories.py`: todo o SQL fica aqui, com uma classe por área. Ao adicionar uma classe, coloque-a **no fim do arquivo** e confira onde termina a anterior, pois os métodos de uma classe longa continuam depois do trecho visível.
-- `app/ui/`: uma pasta por página. Uma página nova entra em `self.pages` (`main_window.py`) e expõe `refresh()`, chamado sempre que ela aparece. `NAV_ITEMS` tem só as seções da barra lateral; a página entra também em `SECTION_PAGES`, se ficar na sub-navegação de uma seção. `show_page` aceita seção, página ou `boss_key(categoria)`.
-- `resources/icons/`: SVGs desenhados com o traço `#aeb6c4`, que `icons.py` troca pela cor do tema.
+- `rust/core` (`pxg-core`): regras de negócio e banco, sem nenhuma dependência do Tauri. Erros para o usuário são `Error::user("mensagem em português")`, já prontos para mostrar.
+- SQL fica só nos repositórios de cada área (`hunts/repository.rs`, `dps/repository.rs`, `prices.rs`, `backup.rs`).
+- `rust/app/src-tauri` (`pxg-app`): comandos chamados pelas telas (`commands/`), as vistas prontas para a tela (`sessions.rs`, `analysis.rs`, `dashboard.rs`, `charts.rs`, `view.rs`), a validação dos diálogos (`forms.rs`), o PDF (`pdf.rs`) e a instalação da atualização (`install.rs`). Comando novo entra no `generate_handler!` de `lib.rs`.
+- `rust/app/src`: telas. A navegação fica em `App.svelte` (`items` tem as seções da barra lateral; `analysisPages` e `sessionPages`, a sub-navegação; `show` aceita seção, página ou `boss:<categoria>`). Página nova entra também na lista do `runSmokeTest`, em `App.svelte`.
+- As telas chamam o Rust pelo `invoke` de `lib/diagnostics.ts`, nunca pelo de `@tauri-apps/api/core`: ele conta as chamadas para o `--smoke-test`.
+- Ícones: `rust/app/src/assets/icons`, SVGs desenhados com o traço `#aeb6c4`, que `Icon.svelte` troca pela cor do texto.
 
 ## Convenções
 
-- **Banco:** tabela nova entra em `models.py` e é criada pelo `create_all`. Coluna nova, coluna apagada (`dropped_columns`) ou dado inicial exige uma `Migration` no fim de `MIGRATIONS`, com SQL idempotente. Bancos novos também rodam todas as migrações, então o SQL não pode depender de uma coluna que já saiu de `models.py`. Testes de migração usam `LATEST_VERSION`, nunca um número fixo.
+- **Banco:** o esquema de um banco novo está em `rust/core/sql/schema_models.sql`. Coluna nova, coluna apagada ou dado inicial exige também uma `Migration` no fim de `MIGRATIONS` (`core/src/db/migrations.rs`), com SQL idempotente: bancos novos também rodam todas as migrações. A próxima é a 11. Testes de migração usam `LATEST_VERSION`, nunca um número fixo.
 - **Fração x porcentagem:** aproveitamentos são guardados como fração de 0 a 1, e só a interface fala em %.
-- **Números digitados:** `parse_user_number` aceita `14k`, `1,2kk` e `1.000.000`. Para preencher um campo, use `format_plain`, que devolve um texto que o parser lê de volta no formato ativo. Para exibir, use `format_number` e `format_money`.
-- **Tabelas:** use `RecordTable` + `Column`, com `fit_contents=True` nas colunas que não podem ser cortadas.
-- **Cores:** use `COLORS` e o QSS de `theme.py`, com `objectName` para estilizar. O dono usa o tema claro; o padrão é o escuro. Vermelho e verde indicam prejuízo e lucro, então a cor forte fica nas etiquetas de elemento (`ELEMENT_COLORS`), iguais nos dois temas. Só o botão principal usa `primary`, escolhido pelo contraste com o texto branco.
-- **Ações de lista:** as que dependem de seleção só aparecem quando podem ser usadas. Nos testes, confira `isHidden()`, não `isVisible()`.
-- **Diálogos com validação:** valide em `accept()`, mostre o erro em um `ErrorLabel` e mantenha o diálogo aberto. Com edição dentro de tabela, deixe o botão Salvar sempre habilitado: é o foco nele que grava a célula em edição.
-- **Testes de interface:** definem `QT_QPA_PLATFORM=offscreen` antes de importar o Qt e guardam o diálogo em uma variável, senão o Python o destrói no meio do teste.
+- **Números digitados:** `parse::parse_user_number` aceita `14k`, `1,2kk` e `1.000.000`. Para preencher um campo, use `format::format_plain`, que devolve um texto que o parser lê de volta no formato ativo. Para exibir, use `format_number` e `format_money`. O formato (pt-BR/en-US) é passado em cada chamada (`state.number_format()`).
+- **Arredondamento e textos:** siga os pontos de atenção de [docs/migracao-rust.md](docs/migracao-rust.md#pontos-de-atenção) (`round_half_even`, `py_strip`, `casefold`, hash canônico). Eles mantêm o resultado igual ao das versões em Python, inclusive a detecção de duplicidade.
+- **Tabelas:** use o componente `RecordTable`, com `fit` nas colunas que não podem ser cortadas.
+- **Cores:** use os tokens de `rust/app/src/app.css`, redefinidos no tema claro. O dono usa o tema claro; o padrão é o escuro. Vermelho e verde indicam prejuízo e lucro, então a cor forte fica nas etiquetas de elemento (`element_color`, em `view.rs`), iguais nos dois temas. Só o botão principal usa `--primary`, escolhido pelo contraste com o texto branco.
+- **Ações de lista:** as que dependem de seleção só aparecem quando podem ser usadas.
+- **Diálogos com validação:** as telas mandam os textos digitados, e `forms.rs` valida e devolve a mensagem. O `Modal` mostra o erro e continua aberto.
+- **Efeitos do Svelte:** um `$effect` que chama uma função de carregar passa a depender de todo estado lido antes do primeiro `await`. Se a função também grava esse estado, use `untrack`, senão o efeito roda sem parar.
 - **Quebras de linha:** o repositório guarda LF e a cópia de trabalho usa CRLF (`core.autocrlf`). Ao editar por script, preserve as quebras de linha para não gerar um diff do arquivo inteiro.
-- **Versão:** `APP_VERSION` em `app/utils/constants.py`. Commits seguem o formato `Título em português (x.y.0)`, com um corpo em tópicos.
-- **Git e release:** faça commit, push ou build só quando o dono pedir. Publicar um release oferece a atualização a todos que usam o `.exe`, então só publique com o `.zip` testado pelo `build_exe.py`.
-- **Atualização automática:** toda versão precisa continuar aceitando `--apply-update <pasta> <pid>` e publicar `PokeXGames-Hunt-Analyzer-X.Y.Z-windows.zip` com a pasta `PokeXGames Hunt Analyzer` dentro, senão as versões já instaladas não conseguem se atualizar. Veja [Atualização do programa](README.md#atualização-do-programa).
+- **Versão:** em `rust/Cargo.toml` (`[workspace.package]`) e em `rust/app/src-tauri/tauri.conf.json`; o build recusa versões diferentes. Commits seguem o formato `Título em português (x.y.0)`, com um corpo em tópicos.
+- **Git e release:** faça commit, push ou build só quando o dono pedir. Publicar um release oferece a atualização a todos que usam o `.exe`, então só publique com o `.zip` testado pelo `build_exe.mjs`.
+- **Atualização automática:** toda versão precisa continuar aceitando `--apply-update <pasta> <pid>` e publicar `PokeXGames-Hunt-Analyzer-X.Y.Z-windows.zip` com a pasta `PokeXGames Hunt Analyzer` dentro, senão as versões já instaladas (inclusive a 1.6.0, em Python) não conseguem se atualizar. Veja [Atualização do programa](README.md#atualização-do-programa).
 
 ## Domínio
 
-- **Sessão / Hunt:** cada arquivo importado vira uma `HuntSession` permanente, com o JSON original em `raw_json`.
+- **Sessão / Hunt:** cada arquivo importado vira uma sessão permanente em `hunt_sessions`, com o JSON original em `raw_json`.
 - **Categoria:** `Category` separa Hunts de Rifts, Energia Vermelha, Energia Azul e Terrors. As regras estão em [Bosses](README.md#bosses).
 - **Boss do DPS:** registro manual em `dps_bosses`, com nome, tempo limite, origem do dano e fraquezas. **Não tem relação** com as categorias nem com as sessões importadas.
 - **Efetividade:** multiplicadores por elemento e tabela de tipos do jogo estão em [docs/efetividade-pxg.md](docs/efetividade-pxg.md). Consulte ao tratar de elementos, tipos, fraquezas ou dano contra um boss.
 
 ## Página DPS
 
-Código: `app/services/dps_calculator.py` (conta pura), `dps_service.py` (cadastro e ranking), `app/ui/dps/`. As fórmulas estão em [DPS](README.md#dps).
+Código: `rust/core/src/dps/calculator.rs` (conta pura), `service.rs` (cadastro e ranking), `transfer.rs` (exportar e importar), `rust/app/src/pages/dps/`. As fórmulas estão em [DPS](README.md#dps).
 
 **Objetivo:** escolher o melhor pokémon para um boss com tempo limite (ex.: 7 min). O dono usa **um único pokémon a batalha inteira**, por isso o ranking é individual e não há revezamento.
 
@@ -101,35 +108,31 @@ Código: `app/services/dps_calculator.py` (conta pura), `dps_service.py` (cadast
 | Exportar e importar por arquivo, com lista para marcar o que vai e testes incluídos; em nome repetido, escolha por cadastro entre Pular (padrão), Substituir e Criar cópia | Decisão do dono (2026-11-05). Sem os testes, o pokémon chegaria zerado. Substituir faz backup antes e mantém os bosses que o pokémon já tinha |
 | Sem vida do boss, colar texto ou painel de filtros | Fora do pedido. O dono recusou explicitamente colar texto |
 
-**Conferência da conta:** no `calculate`, com os danos da lista do colega, básico a 100% e sem o bônus da próxima magia, os totais em 420 s reproduzem a lista do colega (Chumbin 2.916.520, Muq 2.626.680, Maurolem 2.596.300, Sandsmauro 2.441.543, Jeremia 2.347.850, Polishop 2.273.505, Jolt 2.124.150, Bartolomeu 1.878.800). Com as regras atuais, o Chumbin dá **3.046.300**. Esses casos estão em `tests/test_dps.py` e precisam continuar passando; mudar a fórmula de propósito exige combinar com o dono.
+**Conferência da conta:** no `calculate`, com os danos da lista do colega, básico a 100% e sem o bônus da próxima magia, os totais em 420 s reproduzem a lista do colega (Chumbin 2.916.520, Muq 2.626.680, Maurolem 2.596.300, Sandsmauro 2.441.543, Jeremia 2.347.850, Polishop 2.273.505, Jolt 2.124.150, Bartolomeu 1.878.800). Com as regras atuais, o Chumbin dá **3.046.300**. Esses casos estão em `rust/core/tests/dps_calculator.rs` e precisam continuar passando; mudar a fórmula de propósito exige combinar com o dono.
 
-**Testes e edição:** `apply_spec` reaproveita as skills pelo `SkillSpec.skill_id`, porque os testes apontam para elas. Preserve esse id em qualquer fluxo de edição, senão salvar o pokémon apaga os testes.
+**Testes e edição:** `apply_spec` (`dps/repository.rs`) reaproveita as skills pelo `skill_id` do `SkillSpec`, porque os testes apontam para elas. Preserve esse id em qualquer fluxo de edição, senão salvar o pokémon apaga os testes.
 
-**Dados do colega:** os 8 monstros foram inseridos uma vez em `data/hunts.db` e depois excluídos de propósito pelo dono (2026-11-02). O app não traz monstros embutidos. Os números originais continuam em `tests/test_dps.py`, e as skills e recargas, no backup `hunts_backup_2026-11-02_19-18-01_antes-atualizacao.db`.
+**Dados do colega:** os 8 monstros foram inseridos uma vez no banco real e depois excluídos de propósito pelo dono (2026-11-02). O app não traz monstros embutidos. Os números originais continuam em `rust/core/tests/dps_calculator.rs`, e as skills e recargas, no backup `hunts_backup_2026-11-02_19-18-01_antes-atualizacao.db`.
 
-## Capturas de tela
+## Capturas e testes na janela
 
-Em `offscreen` o Qt não encontra fontes e o texto vira quadradinhos. Antes de capturar, carregue a fonte real:
+- Abra o app numa cópia do banco, numa pasta temporária, com a porta de depuração: `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333 PXG_HUNTS_DB=<cópia> npx tauri dev`, a partir de `rust/app`.
+- Rode JavaScript na janela com `node rust/tools/cdp.mjs "(async()=>{...})()"`. Eventos de teclado precisam de `bubbles: true`, porque o Svelte 5 delega os eventos. Para chamar um comando direto: `window.__TAURI_INTERNALS__.invoke("nome", {...})`.
+- Capture com `powershell -File rust/tools/capture_window.ps1 -Out captura.png [-Width 980 -Height 620]`. O tema muda pelo seletor em Configurações.
+- Os diálogos nativos do Windows (abrir, salvar, confirmar) ficam fora do alcance do script.
+- Para fechar: `taskkill //F //IM pxg-app.exe` e encerre o processo na porta 1420. Às vezes o app fecha logo ao abrir quando é reaberto em seguida a um `taskkill`; espere alguns segundos.
 
-```python
-for font in ("segoeui", "seguisb", "segoeuib"):
-    QFontDatabase.addApplicationFont(f"C:/Windows/Fonts/{font}.ttf")
-use_palette(theme); apply_theme(app)
-window.show(); window.show_page("dps"); app.processEvents()
-window.grab().save("captura.png")
-```
-
-## Estado em 2026-11-03
+## Estado em 2026-11-08
 
 **Código**
-- A 1.4.0 (página DPS) não teve release próprio: entrou no da 1.5.0.
-- A 1.5.0 (redesign) está publicada no GitHub, com o `.zip`: 5 itens na barra lateral (Início, Sessões, Análise, DPS e Configurações), botão Importar fixo no lugar do menu do topo, sub-navegação, ações que só aparecem com seleção e etiquetas com as cores dos tipos. As páginas internas continuam separadas no `QStackedWidget`, e só a navegação mudou.
+- A 2.0.0 (Rust) está pronta na branch `rust`, sem commit e sem release. O `.zip` testado está em `rust/dist/`. O corte terminou: o Python foi apagado, e o README e este arquivo descrevem a base em Rust. Faltam o commit, o merge na `main` e o release, só quando o dono pedir.
+- Foi testada a atualização de uma 1.6.0 instalada (o `.exe` de verdade, com uma cópia do banco real) para a 2.0.0, pelo código de atualização da 1.6.0, sem passar pelo GitHub.
+- Ainda não foram conferidos à mão os fluxos com diálogos nativos: PDF pelo menu, Excluir pokémon e boss, Exportar e Importar cadastros, Remover preço, Usar outro banco, Salvar cópia e Restaurar de arquivo. O dono deixou para o teste final.
 - Revisão do DPS (2026-11-03): nenhuma fórmula errada. Sugestões aguardando o dono: avisar testes muito diferentes entre si, marcar empates e fichas incompletas no ranking, avisar pokémon sem básico, aceitar dano 0 dentro do boss e comparar a estimativa com o dano real.
 
 **Banco real**
-- A 1.6.0 (2026-11-05) traz as datas dos testes (migração 10), exportar e importar cadastros do DPS e a atualização automática pelo GitHub, e está publicada no GitHub com o `.zip`. Quem tem versões anteriores precisa baixá-la à mão uma vez. O banco real muda de versão quando o dono abrir o app nessa versão.
-- `data/hunts.db` está na versão 9: o dono abriu o app em 2026-11-03, e o backup de antes da migração está em `data/backups/`. Tem 3 sessões, os bosses Padrão e TESTE e 1 pokémon (Steelix, com testes), anexado a um boss. O dono excluiu de propósito os 8 monstros do colega.
-- O redesign 1.5.0 não mudou o banco nem criou migração.
+- Versão 10, com 3 sessões, os bosses Padrão e TESTE e 1 pokémon (Steelix, com testes), anexado a um boss. A 2.0.0 não criou migração.
+- Na pasta do `.exe` ficou guardado, com outro nome, um banco vazio de um teste da 1.1.0 (`hunts_antigo_teste-1.1.0_2026-09-27.db`).
 
 **Perguntas em aberto**
 - O dummy Neutro vale mesmo 1x? O cálculo por Efetividade depende disso. Falta o dono testar um golpe no Neutro e em um dummy Super Efetivo.
@@ -139,5 +142,4 @@ window.grab().save("captura.png")
 **Detalhes conhecidos**
 - Remover uma skill no cadastro apaga os testes dela ao salvar, sem aviso.
 - Desmarcar "Tem ataque básico" esconde os testes do básico sem apagá-los.
-- Na janela mínima, a tabela de detalhamento do Ranking precisa de rolagem horizontal para mostrar Dano total e %.
-- Na janela mínima, a lista Todas precisa de rolagem horizontal para mostrar as últimas colunas. Ela não mostra Supplies/h, para caber em 1320 px.
+- Um erro inesperado só vai para o log; o Python mostrava uma caixa com o caminho dele.

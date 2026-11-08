@@ -1,0 +1,104 @@
+{
+  "format": "pxg-hunt-analyzer-dps",
+  "version": 1,
+  "app_version": "1.6.0",
+  "exported_at": "2026-11-07T12:00:00",
+  "bosses": [
+    {
+      "name": "Padrão",
+      "time_limit_seconds": 420,
+      "dummy": "neutral",
+      "damage_source": "dummy",
+      "elements": [],
+      "effectiveness": {}
+    },
+    {
+      "name": "Venusaur",
+      "time_limit_seconds": 300,
+      "dummy": "ice",
+      "damage_source": "real",
+      "elements": [
+        "grass",
+        "poison"
+      ],
+      "effectiveness": {
+        "fire": "super_effective"
+      }
+    }
+  ],
+  "pokemons": [
+    {
+      "name": "Muq",
+      "note": "Com boost",
+      "bosses": [
+        "Venusaur"
+      ],
+      "basic": {
+        "efficiency": 0.5,
+        "element": "fire"
+      },
+      "basic_tests": [
+        {
+          "dummy": "ice",
+          "boss": null,
+          "damages": [
+            60,
+            null,
+            null
+          ],
+          "created_at": "2026-01-02T03:04:05",
+          "updated_at": "2026-02-03T04:05:06"
+        }
+      ],
+      "buff": {
+        "cooldown": 60.0,
+        "basic_multiplier": 1.5,
+        "basic_duration": 10.0,
+        "next_spell_multiplier": 2.0
+      },
+      "skills": [
+        {
+          "name": "Golpe",
+          "shape": "target",
+          "reach": "melee",
+          "cooldown": 10.0,
+          "efficiency": 0.75,
+          "element": "ice",
+          "tests": [
+            {
+              "dummy": "neutral",
+              "boss": null,
+              "damages": [
+                100,
+                200,
+                null
+              ],
+              "created_at": "2026-01-02T03:04:05",
+              "updated_at": null
+            },
+            {
+              "dummy": null,
+              "boss": "Venusaur",
+              "damages": [
+                300,
+                null,
+                null
+              ],
+              "created_at": "2026-01-02T03:04:05",
+              "updated_at": null
+            }
+          ]
+        },
+        {
+          "name": "Outro",
+          "shape": "target",
+          "reach": "melee",
+          "cooldown": 20.0,
+          "efficiency": 0.75,
+          "element": "ice",
+          "tests": []
+        }
+      ]
+    }
+  ]
+}
